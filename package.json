@@ -1,0 +1,22 @@
+{
+  "name": "b3js",
+  "version": "1.0.0",
+  "description": "Web3 3JS Game Engine",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun --cwd apps/web run dev",
+    "build": "bun build ./apps/web/index.ts --outdir ./apps/web/dist"
+  },
+  "dependencies": {
+    "@types/three": "^0.184.0",
+    "cannon-es": "^0.20.0",
+    "three": "^0.184.0",
+    "webjsx": "^0.0.73"
+  },
+  "devDependencies": {
+    "bun-types": "latest"
+  }
+}

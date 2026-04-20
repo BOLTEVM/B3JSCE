@@ -1,0 +1,16 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "jsx": "react",
+    "jsxFactory": "webjsx.createElement",
+    "jsxFragmentFactory": "webjsx.Fragment",
+    "types": ["vite/client"]
+  },
+  "include": ["src/**/*", "vite.config.ts"],
+  "references": [
+    { "path": "../../packages/ui" },
+    { "path": "../../packages/engine" },
+    { "path": "../../packages/web3" }
+  ]
+}

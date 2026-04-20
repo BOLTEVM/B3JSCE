@@ -1,0 +1,10 @@
+{
+  "name": "@b3js/ui",
+  "version": "1.0.0",
+  "main": "./src/index.tsx",
+  "dependencies": {
+    "@b3js/engine": "workspace:*",
+    "nanostores": "^1.3.0",
+    "webjsx": "latest"
+  }
+}

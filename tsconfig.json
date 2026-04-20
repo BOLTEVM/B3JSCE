@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "composite": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["bun-types"],
+    "baseUrl": ".",
+    "paths": {
+      "@b3js/engine": ["packages/engine/src/index.ts"],
+      "@b3js/ui": ["packages/ui/src/index.tsx"],
+      "@b3js/web3": ["packages/web3/src/index.ts"]
+    }
+  },
+  "files": [],
+  "references": [
+    { "path": "./packages/engine" },
+    { "path": "./packages/ui" },
+    { "path": "./packages/web3" }
+  ]
+}
