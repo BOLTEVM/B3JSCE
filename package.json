@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun --cwd apps/web run dev",
+    "dev": "bun --filter web-app run dev",
     "build": "bun build ./apps/web/index.ts --outdir ./apps/web/dist"
   },
   "dependencies": {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { DbConnectionImpl, Identity } from 'spacetimedb';
+import { DbConnection, Identity } from 'spacetimedb';
 import { B3Engine, B3Object } from './index';
 import { nanoid } from 'nanoid';
 
@@ -27,7 +27,7 @@ export class SpacetimeManager {
         console.log(`B3JS Spacetime: Connecting to ${url}/${dbName}...`);
         
         try {
-            this.conn = (DbConnectionImpl as any).builder()
+            this.conn = DbConnection.builder()
                 .withUri(url)
                 .withDatabaseName(dbName)
                 .onConnect((conn: any, identity: Identity, token: string) => {
