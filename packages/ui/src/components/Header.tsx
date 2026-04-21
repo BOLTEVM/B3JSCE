@@ -4,6 +4,7 @@ export const Header = ({
     activeMenu, 
     onMenuToggle, 
     onSettingsOpen,
+    isSpacetimeOnline,
     renderDropdown
 }: any) => {
     return (
@@ -12,6 +13,13 @@ export const Header = ({
                 <img src="/0logov3.png" style="height: 18px; cursor: pointer; margin-right: 16px; margin-left: 4px;" 
                     onClick={onSettingsOpen}
                 />
+                
+                {/* Spacetime Status Indicator */}
+                <div style="display: flex; align-items: center; margin-right: 20px; font-size: 9px; color: #666; font-family: monospace;">
+                    <div style={`width: 6px; height: 6px; border-radius: 50%; background: ${isSpacetimeOnline ? '#00ff88' : '#ff3366'}; margin-right: 6px; box-shadow: 0 0 5px ${isSpacetimeOnline ? '#00ff8888' : '#ff3366'}`}></div>
+                    {isSpacetimeOnline ? 'SYNCING' : 'OFFLINE (CACHED)'}
+                </div>
+
                 {['File', 'Edit', 'Selection', 'Add', 'Help'].map(menu => (
                     <div class={`menu-item ${activeMenu === menu ? 'active' : ''}`}
                         onClick={(e: any) => {

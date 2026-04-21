@@ -17,6 +17,7 @@ import { AudioPanel } from './components/AudioPanel';
 import { NetworkPanel } from './components/NetworkPanel';
 import { OptimizationPanel } from './components/OptimizationPanel';
 import { InventoryPanel } from './components/InventoryPanel';
+import { ProjectModal } from './components/ProjectModal';
 
 /**
  * Industry-Standard B3JS Engine Editor
@@ -27,6 +28,7 @@ export class B3Editor extends HTMLElement {
     private miningStats = { hashrate: '0 H/s', shares: '0', status: 'OFFLINE' };
     private gizmoMode: 'translate' | 'rotate' | 'scale' = 'translate';
     private isSettingsOpen: boolean = false;
+    private isProjectModalOpen: boolean = false;
     private activeMenu: string | null = null;
     private logicHeight: number = 250;
     private isDraggingNode: string | null = null;
@@ -55,6 +57,10 @@ export class B3Editor extends HTMLElement {
             storeSelectObject(obj?.id ?? null);
             this.render();
         });
+
+        // Initialize SpacetimeDB connection for real-time multiplayer sync
+        this.engine.spacetime.connect('ws://localhost:3000', 'b3js_sync');
+
         this.render();
     }
 
@@ -380,6 +386,27 @@ export class B3Editor extends HTMLElement {
         if (e.key.toLowerCase() === 's') this.setGizmoMode('scale');
     };
 
+    private saveProject() {
+        if (!this.engine) return;
+        let name = "New Project";
+        let id = this.engine.activeProjectId;
+        
+        if (!id) {
+            const input = prompt("Enter Project Name:", "My B3JS World");
+            if (!input) return;
+            name = input;
+        } else {
+            const list = this.engine.projects.list();
+            name = list.find(p => p.id === id)?.name || "Unnamed Project";
+        }
+
+        const data = this.engine.serialize();
+        const savedId = this.engine.projects.save(name, data, id || undefined);
+        this.engine.activeProjectId = savedId;
+        alert(`Project '${name}' saved!`);
+        this.render();
+    }
+
     private exportProject() {
         if (!this.engine) return;
         const data = this.engine.serialize();
@@ -498,6 +525,7 @@ export class B3Editor extends HTMLElement {
 
                 {Header({ 
                     activeMenu: this.activeMenu,
+                    isSpacetimeOnline: (this.engine?.spacetime as any)?.isOnline || false,
                     onMenuToggle: (menu: any) => { this.activeMenu = menu; this.render(); },
                     onSettingsOpen: () => { this.isSettingsOpen = true; this.render(); },
                     renderDropdown: (menu: string) => this.renderDropdown(menu)
@@ -614,6 +642,12 @@ export class B3Editor extends HTMLElement {
                 </div>
 
                 {SettingsModal({ isOpen: this.isSettingsOpen, onClose: () => { this.isSettingsOpen = false; this.render(); } })}
+                {ProjectModal({ 
+                    isOpen: this.isProjectModalOpen, 
+                    onClose: () => { this.isProjectModalOpen = false; this.render(); },
+                    engine: this.engine,
+                    onRender: () => this.render()
+                })}
             </div>
         ) as any);
     }
@@ -621,11 +655,36 @@ export class B3Editor extends HTMLElement {
     private renderDropdown(menu: string) {
         const items: any = {
             'File': [
-                { label: 'New Project', shortcut: 'Ctrl+N', action: () => { if(confirm("Discard all changes?")) this.engine?.resetScene(); } },
-                { label: 'Import JSON', action: () => this.importProject() },
+                { label: 'New Project', shortcut: 'Ctrl+N', action: () => { if(confirm("Discard all changes?")) { this.engine?.resetScene(); if(this.engine) this.engine.activeProjectId = null; } } },
                 { type: 'divider' },
-                { label: 'Export JSON', shortcut: 'Ctrl+S', action: () => this.exportProject() },
-                { label: 'Export GLTF' }
+                { label: 'Save Project', shortcut: 'Ctrl+S', action: () => this.saveProject() },
+                { label: 'Save Project As...', action: () => {
+                    const name = prompt("Enter New Name:");
+                    if (name && this.engine) {
+                        const data = this.engine.serialize();
+                        this.engine.activeProjectId = this.engine.projects.save(name, data);
+                        alert(`Project saved as ${name}`);
+                    }
+                }},
+                { label: 'Open Project...', action: () => { this.isProjectModalOpen = true; } },
+                { type: 'divider' },
+                { label: 'Import JSON', action: () => this.importProject() },
+                { label: 'Export JSON', action: () => this.exportProject() },
+                { label: 'Export GLTF' },
+                { type: 'divider' },
+                { label: 'Spacetime: Create Global World', action: () => {
+                    const name = prompt("Enter World Name:");
+                    if (name) this.engine?.spacetime.createLobby(name, true);
+                }},
+                { label: 'Spacetime: Join Private World', action: () => {
+                    const id = prompt("Enter World ID:");
+                    if (id) this.engine?.spacetime.joinLobby(id);
+                }},
+                { label: 'Spacetime: Share World ID', action: () => {
+                    const id = this.engine?.spacetime.activeLobbyId;
+                    if (id) prompt("Copy World ID:", id);
+                    else alert("Not connected to a world.");
+                }}
             ],
             'Edit': [
                 { label: 'Undo', shortcut: 'Ctrl+Z', action: () => this.engine?.history.undo() },

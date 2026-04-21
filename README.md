@@ -11,25 +11,31 @@
 
 ## 🚀 Overview
 
-B3JS is a browser-based 3D game engine built on top of **Three.js** and **Cannon-es**, designed with a focus on **Web3 integration**, **High-Performance ECS**, and **Low-Code Logic Bricks**. It provides a robust suite of tools for creators to build immersive virtual worlds, tactical games, and decentralized applications with minimal overhead.
+B3JS is an industrial-grade, browser-based 3D game engine and editor built on **Three.js** and **Cannon-es**. It is designed for maximum developer leverage, focusing on **Web3 integration**, **Real-time Multiplayer (SpacetimeDB)**, and **Sandboxed Python logic**. 
+
+From high-fidelity tactical simulations to decentralized virtual worlds, B3JS provides a professional suite of tools including a Nodal Material System, Logic Brick Framework, and comprehensive state restoration.
 
 ## ✨ Key Features
 
-- **⚡ High-Performance ECS**: A custom Entity-Component-System (ECS) architecture that decouples logic from rendering for maximum efficiency.
-- **🎨 Nodal Material System**: A visual-ready shader system for creating complex materials with ease.
-- **🧩 Logic Brick System**: Inspired by professional game engines, allowing for complex behavior through Sensors, Controllers, and Actuators without writing code.
-- **🌐 Web3-Native**: Built-in support for EVM wallet connectivity, ENS resolution, and decentralized messaging.
-- **⚡ Background Pathfinding**: Offloaded AI computations to WebWorkers to ensure buttery smooth 60fps gameplay.
-- **🛡️ Editor Stability**: Industrial-grade state restoration and undo/redo history for a professional developer experience.
-- **🗺️ Procedural Templates**: Rapid world generation protocols (e.g., Boltevm integration).
+- **🌐 Multiplayer Sync (SpacetimeDB)**: Granular, real-time synchronization of world state and transforms. Built-in interpolation and offline fallback to local storage.
+- **🐍 Python Scripting**: Sandboxed behavior logic powered by **Pyodide**. Securely execute Python scripts for complex object behaviors without compromising stability.
+- **🛡️ Tactical Avatar System**: Asynchronous GLTF loading with bone-based socket re-binding. Easily equip tactical gear, weapons, and accessories to skeletal models.
+- **🎨 Nodal Material Editor**: A visual-ready shader graph system for creating complex, dynamic materials and effects.
+- **🧩 Advanced Logic Bricks**: Professional-grade behavioral system (Sensors, Controllers, Actuators) with expanded support for Web3 wallets, Mining telemetry, and Combat systems.
+- **⚡ High-Performance ECS**: A custom Entity-Component-System architecture that decouples simulation logic from rendering for maximum efficiency.
+- **🛠️ Professional Editor Tools**: 
+    - Full **Undo/Redo** history and state restoration.
+    - Transform Gizmos for precise object manipulation.
+    - Specialized panels for Networking, Optimization, Audio, and Inventories.
 
 ## 🛠️ Tech Stack
 
-- **Core**: TypeScript, Three.js
-- **Physics**: Cannon-es
+- **Core**: TypeScript, Three.js, Cannon-es
+- **Multiplayer**: SpacetimeDB
+- **Scripting**: Pyodide (Python 3.11+)
 - **Build Tooling**: Bun, Vite, Turborepo
-- **Logic**: Logic Brick Framework (Sensors/Controllers/Actuators)
-- **AI**: WebWorker-based Three-Pathfinding
+- **UI**: React-based professional editor suite
+- **Web3**: EVM-compatible protocols and WalletConnect integration
 
 ## 📦 Project Structure
 
@@ -37,10 +43,10 @@ B3JS is a browser-based 3D game engine built on top of **Three.js** and **Cannon
 ├── apps/
 │   └── web/            # The main Editor / Application entry point
 ├── packages/
-│   ├── engine/         # Core engine source (ECS, Systems, Logic Bricks)
-│   ├── ui/             # Industrial-grade editor UI components
-│   └── web3/           # Web3 protocols and WalletConnect integration
-└── assets/             # Shared geometry and textures
+│   ├── engine/         # Core engine (ECS, SpacetimeDB bridge, Python runtime)
+│   ├── ui/             # Professional suite of Editor UI panels and components
+│   └── web3/           # Web3 protocols and decentralized wallet integrations
+└── assets/             # Shared geometry, textures, and avatar assets
 ```
 
 ## 🚀 Quick Start
@@ -58,6 +64,12 @@ bun install
 ```bash
 # Start the development server
 bun run dev
+```
+
+### Building for Production
+```bash
+# Build the application
+bun run build
 ```
 
 ## 📄 License

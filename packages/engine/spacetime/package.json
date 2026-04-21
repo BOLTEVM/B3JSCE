@@ -1,0 +1,14 @@
+{
+  "name": "engine-sync",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "dependencies": {
+    "spacetimedb": "^2.1.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "build": "tsc"
+  }
+}

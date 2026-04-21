@@ -16,6 +16,8 @@ import { Optimizer } from './optimization';
 import { VehicleManager } from './vehicle';
 import { CombatManager } from './combat';
 import { InventoryManager, B3Item } from './inventory';
+import { SpacetimeManager } from './spacetime';
+import { ProjectManager } from './project';
 import { Pathfinding } from 'three-pathfinding';
 
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -797,6 +799,9 @@ export class B3Object {
 
     setEngineRef(engine: B3Engine) {
         this._engineRef = engine;
+        // Register the entity generated in the constructor with the world
+        engine.ecs.spawnWithId(this.ecsEntityId);
+        
         engine.ecs.addComponent(this.ecsEntityId, { _type: 'Health', hp: 100, maxHp: 100 });
         engine.ecs.addComponent(this.ecsEntityId, { 
             _type: 'Logic', 
@@ -1191,6 +1196,9 @@ export class B3Engine {
     optimizer: Optimizer;
     vehicles: VehicleManager;
     combat: CombatManager;
+    spacetime: SpacetimeManager;
+    projects: ProjectManager = new ProjectManager();
+    activeProjectId: string | null = null;
     pathfinder: Pathfinding = new Pathfinding(); // Fallback for synchronous ops
     pathfinderWorker: Worker | null = null;
     private _pathCallbacks: Map<number, (path: any) => void> = new Map();
@@ -1248,6 +1256,7 @@ export class B3Engine {
         this.optimizer = new Optimizer(this);
         this.vehicles = new VehicleManager(this);
         this.combat = new CombatManager(this);
+        this.spacetime = new SpacetimeManager(this);
 
         this.world = new CANNON.World();
         this.world.gravity.set(0, -9.82, 0);
@@ -1292,6 +1301,11 @@ export class B3Engine {
                             endRot
                         ));
                     }
+                }
+
+                // Sync to Network/Spacetime
+                if (this.selectedObject && !this.selectedObject.isRemote) {
+                    this.spacetime.pushUpdate(this.selectedObject);
                 }
 
                 if (this.selectedObject.body) {
@@ -1358,6 +1372,11 @@ self.onmessage = function(e) {
             this.scene.add(b3obj.object);
         }
         if (b3obj.body) this.world.addBody(b3obj.body);
+
+        // Push to SpacetimeDB (only if not a remote object already)
+        if (!b3obj.isRemote) {
+            this.spacetime.pushSpawn(b3obj);
+        }
     }
 
     removeObject(id: string) {
@@ -1387,6 +1406,11 @@ self.onmessage = function(e) {
         // 5. Final tracking cleanup
         this.objects = this.objects.filter(o => o.id !== id);
         if (this.selectedObject === b3obj) this.selectObject(null);
+
+        // Push to SpacetimeDB
+        if (!b3obj.isRemote) {
+            this.spacetime.pushDelete(id);
+        }
     }
 
     toggleSimulation() {
@@ -1504,7 +1528,9 @@ self.onmessage = function(e) {
     }
 
     loadFromLocalStorage() {
-        const raw = localStorage.getItem('B3JS_PROJECT_DATA');
+        const offlineCache = localStorage.getItem('B3JS_OFFLINE_CACHE');
+        const raw = offlineCache || localStorage.getItem('B3JS_PROJECT_DATA');
+        
         if (!raw) {
             // Initial boot: populate with Boltevm World template
             this.createBoltevmTemplate().then(() => {

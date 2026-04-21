@@ -5,5 +5,8 @@
   "dependencies": {
     "thirdweb": "latest",
     "@privy-io/react-auth": "latest"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
   }
 }

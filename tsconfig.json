@@ -12,7 +12,7 @@
     "isolatedModules": true,
     "esModuleInterop": true,
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "types": ["bun-types"],
+    "types": ["bun"],
     "baseUrl": ".",
     "paths": {
       "@b3js/engine": ["packages/engine/src/index.ts"],

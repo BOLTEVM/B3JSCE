@@ -1,0 +1,7 @@
+{
+  "project": {
+    "name": "engine-sync",
+    "language": "typescript",
+    "module_path": "src/index.ts"
+  }
+}

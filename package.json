@@ -17,6 +17,6 @@
     "webjsx": "^0.0.73"
   },
   "devDependencies": {
-    "bun-types": "latest"
+    "@types/bun": "latest"
   }
 }
