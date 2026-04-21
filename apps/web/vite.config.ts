@@ -11,6 +11,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    fs: {
+      strict: false,
+      allow: ['..'],
+    },
     proxy: {
       '/api/hardware': {
         target: 'http://localhost:8081',

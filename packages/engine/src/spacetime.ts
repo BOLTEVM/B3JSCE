@@ -1,41 +1,38 @@
 import * as THREE from 'three';
-import { DbConnection, Identity } from 'spacetimedb';
 import { B3Engine, B3Object } from './index';
 import { nanoid } from 'nanoid';
 
-/**
- * SpacetimeManager: Orchestrates real-time granular sync with SpacetimeDB.
- * Handles smooth interpolation targets and falls back to local storage if offline.
- */
 export class SpacetimeManager {
     private conn: any = null;
     private isOnline: boolean = false;
     private lastSyncTime: number = 0;
-    private syncInterval: number = 50; // 20Hz sync for local changes
+    private syncInterval: number = 50;
     private currentLobbyId: string | null = null;
-    
+
     public get activeLobbyId(): string | null {
         return this.currentLobbyId;
     }
-    
-    // Fallback cache key
+
     private readonly CACHE_KEY = 'B3JS_OFFLINE_CACHE';
 
     constructor(private engine: B3Engine) {}
 
     public async connect(url: string, dbName: string) {
         console.log(`B3JS Spacetime: Connecting to ${url}/${dbName}...`);
-        
+
         try {
-            this.conn = DbConnection.builder()
+            const { DbConnectionImpl, DbConnectionBuilder } = await import('spacetimedb');
+
+            const builder = new (DbConnectionBuilder as any)({}, DbConnectionImpl);
+            this.conn = builder
                 .withUri(url)
                 .withDatabaseName(dbName)
-                .onConnect((conn: any, identity: Identity, token: string) => {
+                .onConnect((conn: any, identity: any, token: string) => {
                     this.isOnline = true;
                     console.log("B3JS Spacetime: Connected. Identity:", identity.toHexString());
-                    
+
                     conn.subscriptionBuilder()
-                        .subscribeToAllTables() 
+                        .subscribeToAllTables()
                         .onApplied(() => this.handleInitialState());
                 })
                 .onDisconnect(() => {
