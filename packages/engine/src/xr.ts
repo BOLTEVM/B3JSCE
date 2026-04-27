@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { B3Engine } from './index';
 import { XRRadialMenu, XRGizmo, XRInspectorCard } from './xr_ui';
 
-export type LocomotionMode = 'Teleport' | 'Fly' | 'Designer';
+export type LocomotionMode = 'Teleport' | 'Fly' | 'Designer' | 'Teleoperation';
 
 /**
  * XRManager: Handles WebXR locomotion, controllers, and immersive sessions.
@@ -93,7 +93,7 @@ export class XRManager {
             const raycaster = this.getControllerRay(index);
             const selection = this.menu.updateSelection(raycaster);
             
-            if (selection === 'Teleport' || selection === 'Fly' || selection === 'Designer') {
+            if (selection === 'Teleport' || selection === 'Fly' || selection === 'Designer' || selection === 'Teleoperation') {
                 this.setMode(selection as LocomotionMode);
             } else if (selection === 'NPC') {
                 this.engine.createNPC();
@@ -199,6 +199,8 @@ export class XRManager {
             this.handleTeleportPreview();
         } else if (this.mode === 'Designer') {
             this.handleDesignerUpdate();
+        } else if (this.mode === 'Teleoperation') {
+            this.handleTeleoperationUpdate(delta);
         }
     }
 
@@ -257,6 +259,38 @@ export class XRManager {
                 }
             }
         }
+    }
+
+    private handleTeleoperationUpdate(delta: number) {
+        if (!this.engine.robotics) return;
+
+        const session = this.engine.renderer.xr.getSession();
+        if (!session) return;
+
+        const linear = { x: 0, y: 0, z: 0 };
+        const angular = { x: 0, y: 0, z: 0 };
+
+        for (const source of session.inputSources) {
+            if (source.gamepad && source.gamepad.axes.length >= 4) {
+                if (source.handedness === 'left') {
+                    // Left Stick: Locomotion (X: Lateral, Y: Longitudinal)
+                    linear.x = source.gamepad.axes[2];
+                    linear.z = -source.gamepad.axes[3];
+                } else if (source.handedness === 'right') {
+                    // Right Stick: Rotation (X: Yaw)
+                    angular.z = -source.gamepad.axes[2];
+                }
+            }
+        }
+
+        // Apply deadzones and scale
+        const DEADZONE = 0.15;
+        const scaleVel = (v: number) => (Math.abs(v) < DEADZONE ? 0 : v);
+
+        this.engine.robotics.move(
+            { x: scaleVel(linear.x), y: 0, z: scaleVel(linear.z) },
+            { x: 0, y: 0, z: scaleVel(angular.z) }
+        );
     }
 
     private handleTeleportPreview() {

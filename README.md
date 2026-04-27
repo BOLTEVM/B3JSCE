@@ -17,12 +17,13 @@ From high-fidelity tactical simulations to decentralized virtual worlds, B3JS pr
 
 ## ✨ Key Features
 
-- **🌐 Multiplayer Sync (SpacetimeDB)**: Granular, real-time synchronization of world state and transforms. Built-in interpolation and offline fallback to local storage.
-- **🐍 Python Scripting**: Sandboxed behavior logic powered by **Pyodide**. Securely execute Python scripts for complex object behaviors without compromising stability.
-- **🛡️ Tactical Avatar System**: Asynchronous GLTF loading with bone-based socket re-binding. Easily equip tactical gear, weapons, and accessories to skeletal models.
+- **🛡️ Phase 4 Engine Stabilized**: Pure ECS separation. WebWorkers handle intensive pathfinding and AI updates independently, ensuring stable 60+ FPS under heavy logic load. Safe serialization stops Editor Play/Pause data bleeding.
+- **🌐 Multiplayer Sync (SpacetimeDB)**: Granular, real-time synchronization of world state. The networking subsystem employs strict Ownership schemas to completely prevent unauthorized remote state manipulation.
+- **🐍 Python & C# Scripting**: Sandboxed behavior logic powered by **Pyodide** and dynamic C# execution contexts.
+- **🦴 Dynamic Skeleton & Procedural IK**: Native extraction of `THREE.Bone` hierarchies from GLTF imports. Logic Bricks like `BoneLookAtActuator` provide dynamic procedural aiming, head tracking, and IK recoil out-of-the-box.
+- **🥽 XR Locomotion Ready**: Hardcoded index limitations resolved with dynamic dominant-handedness detection and patched memory leaks for seamless headset experiences.
 - **🎨 Nodal Material Editor**: A visual-ready shader graph system for creating complex, dynamic materials and effects.
 - **🧩 Advanced Logic Bricks**: Professional-grade behavioral system (Sensors, Controllers, Actuators) with expanded support for Web3 wallets, Mining telemetry, and Combat systems.
-- **⚡ High-Performance ECS**: A custom Entity-Component-System architecture that decouples simulation logic from rendering for maximum efficiency.
 - **🛠️ Professional Editor Tools**: 
     - Full **Undo/Redo** history and state restoration.
     - Transform Gizmos for precise object manipulation.

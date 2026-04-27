@@ -11,20 +11,28 @@ import { atom, map } from 'nanostores';
 export const $activeSceneName = atom<string>('MainScene');
 
 /** Mining telemetry stats for the mining panel. */
-export const $miningStats = map<{
-    hashrate: string;
-    shares: string;
+export interface MiningData {
+    hashrate: number;
+    shares_accepted: number;
+    shares_rejected: number;
+    uptime: number;
     status: string;
+}
+
+export const $miningStats = map<{
+    fractal: MiningData;
+    quai: MiningData;
+    qrl: MiningData;
 }>({
-    hashrate: '0 H/s',
-    shares: '0',
-    status: 'OFFLINE',
+    fractal: { hashrate: 0, shares_accepted: 0, shares_rejected: 0, uptime: 0, status: 'OFFLINE' },
+    quai: { hashrate: 0, shares_accepted: 0, shares_rejected: 0, uptime: 0, status: 'OFFLINE' },
+    qrl: { hashrate: 0, shares_accepted: 0, shares_rejected: 0, uptime: 0, status: 'OFFLINE' },
 });
 
 export function setActiveScene(name: string): void {
     $activeSceneName.set(name);
 }
 
-export function updateMiningStats(stats: { hashrate: string; shares: string; status: string }): void {
-    $miningStats.set(stats);
+export function updateMiningStats(type: 'fractal' | 'quai' | 'qrl', stats: MiningData): void {
+    $miningStats.setKey(type, stats);
 }

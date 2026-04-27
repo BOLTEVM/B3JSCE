@@ -1,6 +1,6 @@
 import * as webjsx from 'webjsx';
 import * as THREE from 'three';
-import { B3Engine, B3Object, Sensor, Controller, Actuator, KeyboardSensor, AndController, MotionActuator } from '@b3js/engine';
+import { B3Engine, B3Object, Sensor, Controller, Actuator, KeyboardSensor, AndController, MotionActuator, PIN_COLORS } from '@b3js/engine';
 import { selectObject as storeSelectObject } from './store/selectionStore';
 
 // Component Imports
@@ -18,6 +18,7 @@ import { NetworkPanel } from './components/NetworkPanel';
 import { OptimizationPanel } from './components/OptimizationPanel';
 import { InventoryPanel } from './components/InventoryPanel';
 import { ProjectModal } from './components/ProjectModal';
+import { RoboticsPanel } from './components/RoboticsPanel';
 
 /**
  * Industry-Standard B3JS Engine Editor
@@ -37,7 +38,7 @@ export class B3Editor extends HTMLElement {
     private wireMousePos: { x: number, y: number } = { x: 0, y: 0 };
     private selectedShaderNode: any | null = null;
     private isResizingLogic: boolean = false;
-    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' = 'logic';
+    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' = 'logic';
 
     private root: HTMLElement;
 
@@ -133,15 +134,48 @@ export class B3Editor extends HTMLElement {
                     {title}
                 </div>
                 <div class="node-body">
-                    {/* Logic Node Pins */}
-                    {type === 'sensor' && <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'out')} style="margin-left: auto;"></div>}
-                    {type === 'controller' && (
-                        <div style="display: flex; justify-content: space-between;">
-                            <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'in')} onMouseUp={(e: any) => onPinMouseUp(e, 'in')}></div>
-                            <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'out')}></div>
+                    {/* Logic Node Pins (V1 Fallback & V2 Typed) */}
+                    {(type === 'sensor' || type === 'controller' || type === 'actuator') && node.inputs && node.inputs.length === 0 && node.outputs && node.outputs.length === 0 && (
+                        <>
+                            {type === 'sensor' && <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'out')} style="margin-left: auto;"></div>}
+                            {type === 'controller' && (
+                                <div style="display: flex; justify-content: space-between;">
+                                    <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'in')} onMouseUp={(e: any) => onPinMouseUp(e, 'in')}></div>
+                                    <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'out')}></div>
+                                </div>
+                            )}
+                            {type === 'actuator' && <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'in')} onMouseUp={(e: any) => onPinMouseUp(e, 'in')}></div>}
+                        </>
+                    )}
+
+                    {/* V2 Logic Node Pins */}
+                    {(type === 'sensor' || type === 'controller' || type === 'actuator') && (node.inputs.length > 0 || node.outputs.length > 0) && (
+                        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
+                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                                {node.inputs.map((p: any) => (
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <div class={`pin ${p.connectedTo?.length > 0 ? 'pin-connected' : ''}`} 
+                                             style={`background: ${p.connectedTo?.length > 0 ? (PIN_COLORS as any)[p.dataType] || '#888' : '#333'}; border-color: ${(PIN_COLORS as any)[p.dataType] || '#888'};`}
+                                             onMouseDown={(e: any) => onPinMouseDown(e, 'in', p.id)}
+                                             onMouseUp={(e: any) => onPinMouseUp(e, 'in', p.id)}
+                                             title={p.dataType}></div>
+                                        <span style="font-size: 9px; color: #aaa;">{p.name} {p.dataType === 'exec' ? '►' : ''}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                                {node.outputs.map((p: any) => (
+                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                        <span style="font-size: 9px; color: #aaa;">{p.dataType === 'exec' ? '►' : ''} {p.name}</span>
+                                        <div class={`pin ${p.connectedTo?.length > 0 ? 'pin-connected' : ''}`}
+                                             style={`background: ${p.connectedTo?.length > 0 ? (PIN_COLORS as any)[p.dataType] || '#888' : '#333'}; border-color: ${(PIN_COLORS as any)[p.dataType] || '#888'};`}
+                                             onMouseDown={(e: any) => onPinMouseDown(e, 'out', p.id)}
+                                             title={p.dataType}></div>
+                                    </div>
+                                ))}
+                            </div>
                         </div>
                     )}
-                    {type === 'actuator' && <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'in')} onMouseUp={(e: any) => onPinMouseUp(e, 'in')}></div>}
 
                     {/* Shader Node Pins */}
                     {type === 'shader' && (
@@ -188,12 +222,49 @@ export class B3Editor extends HTMLElement {
             const container = document.getElementById('logic-canvas-container');
             const rect = container?.getBoundingClientRect();
 
+            const allNodes = [
+                ...this.selectedObject.sensors,
+                ...this.selectedObject.controllers,
+                ...this.selectedObject.actuators
+            ];
+
+            const wireOpacity = localStorage.getItem('B3JS_WIRE_OPACITY') || "0.8";
+            const wireColorMode = localStorage.getItem('B3JS_WIRE_COLOR_MODE') || "typed";
+            const wireCustomColor = localStorage.getItem('B3JS_WIRE_CUSTOM_COLOR') || "#e68523";
+
+            // Draw V1 Legacy Connections
             this.selectedObject.controllers.forEach(c => {
+                if (c.inputs && c.inputs.length > 0) return; // Skip if V2
                 c.sensors.forEach((s: any) => {
-                    paths.push(this.drawBezier(s.guiMetadata.x + 120, s.guiMetadata.y + 70, c.guiMetadata.x, c.guiMetadata.y + 70));
+                    paths.push(this.drawBezier(s.guiMetadata.x + 120, s.guiMetadata.y + 20, c.guiMetadata.x, c.guiMetadata.y + 20, wireColorMode === 'custom' ? wireCustomColor : "#00ff88", wireOpacity));
                 });
                 c.actuators.forEach((a: any) => {
-                    paths.push(this.drawBezier(c.guiMetadata.x + 120, c.guiMetadata.y + 70, a.guiMetadata.x, a.guiMetadata.y + 70));
+                    paths.push(this.drawBezier(c.guiMetadata.x + 120, c.guiMetadata.y + 20, a.guiMetadata.x, a.guiMetadata.y + 20, wireColorMode === 'custom' ? wireCustomColor : "#00d4ff", wireOpacity));
+                });
+            });
+
+            // Draw V2 Connections
+            allNodes.forEach(target => {
+                if (!target.inputs || target.inputs.length === 0) return;
+                target.inputs.forEach((inputPin: any, inIdx: number) => {
+                    inputPin.connectedTo?.forEach((srcPinId: string) => {
+                        allNodes.forEach(source => {
+                            if (!source.outputs) return;
+                            const outIdx = source.outputs.findIndex((p: any) => p.id === srcPinId);
+                            if (outIdx !== -1) {
+                                const srcPin = source.outputs[outIdx];
+                                const x1 = source.guiMetadata.x + 140; // width
+                                const y1 = source.guiMetadata.y + 35 + (outIdx * 19);
+                                const x2 = target.guiMetadata.x;
+                                const y2 = target.guiMetadata.y + 35 + (inIdx * 19);
+                                
+                                let c = (PIN_COLORS as any)[srcPin.dataType] || "#e68523";
+                                if (wireColorMode === 'custom') c = wireCustomColor;
+
+                                paths.push(this.drawBezier(x1, y1, x2, y2, c, wireOpacity));
+                            }
+                        });
+                    });
                 });
             });
 
@@ -283,6 +354,11 @@ export class B3Editor extends HTMLElement {
         window.addEventListener('click', this.handleGlobalClick);
         window.addEventListener('mousemove', this.handleMouseMove);
         window.addEventListener('mouseup', this.handleMouseUp);
+        (window as any).B3_EDITOR_INSTANCE = this;
+
+        ['fractal', 'quai', 'qrl'].forEach(type => {
+            window.addEventListener(`b3js:mining:${type}`, () => this.render());
+        });
 
         // Signal to consumers that the editor DOM is ready
         this.dispatchEvent(new CustomEvent('editor-ready', {
@@ -296,6 +372,7 @@ export class B3Editor extends HTMLElement {
         window.removeEventListener('click', this.handleGlobalClick);
         window.removeEventListener('mousemove', this.handleMouseMove);
         window.removeEventListener('mouseup', this.handleMouseUp);
+        (window as any).B3_EDITOR_INSTANCE = null;
     }
 
     private handleMouseMove = (e: MouseEvent) => {
@@ -576,17 +653,22 @@ export class B3Editor extends HTMLElement {
                          <div class={`menu-item ${this.activeBottomTab === 'inventory' ? 'active' : ''}`} 
                               style="height: 24px; font-size: 9px;"
                               onClick={() => { this.activeBottomTab = 'inventory'; this.render(); }}>Inventory</div>
+                         <div class={`menu-item ${this.activeBottomTab === 'robotics' ? 'active' : ''}`} 
+                              style="height: 24px; font-size: 9px;"
+                              onClick={() => { this.activeBottomTab = 'robotics'; this.render(); }}>Robotics</div>
                      </div>
                     
                     {this.activeBottomTab === 'logic' && LogicEditor({ 
                         selectedObject: this.selectedObject,
                         engine: this.engine,
+                        onRender: () => this.render(),
                         renderWires: () => this.renderWires(),
                         renderNode: (node: any, type: string) => this.renderNode(node, type)
                     })}
                     {this.activeBottomTab === 'shader' && ShaderEditor({
                         selectedObject: this.selectedObject,
                         engine: this.engine,
+                        onRender: () => this.render(),
                         renderWires: () => this.renderWires(),
                         renderNode: (node: any, type: string) => this.renderNode(node, type)
                     })}
@@ -605,6 +687,7 @@ export class B3Editor extends HTMLElement {
                             onRender={() => this.render()}
                         />
                     )}
+                    {this.activeBottomTab === 'robotics' && <RoboticsPanel engine={this.engine} />}
                 </div>
 
                 <div class="panel outliner">
@@ -637,7 +720,7 @@ export class B3Editor extends HTMLElement {
                         <span id="mining-status" style={`color: ${this.miningStats.status === 'CONNECTED' ? '#00ff88' : '#ff3366'}`}>{this.miningStats.status}</span>
                     </div>
                     <div id="mining-content">
-                        {MiningPanel({ stats: this.miningStats })}
+                        {MiningPanel({ engine: this.engine })}
                     </div>
                 </div>
 
@@ -708,7 +791,9 @@ export class B3Editor extends HTMLElement {
                 { label: 'Vehicle: Chassis', action: () => this.engine?.createVehicleBase() },
                 { type: 'divider' },
                 { label: 'Pickup: Ammo Box', action: () => this.engine?.createAmmoPickup() },
-                { label: 'Pickup: Medkit', action: () => this.engine?.createHealthPickup() }
+                { label: 'Pickup: Medkit', action: () => this.engine?.createHealthPickup() },
+                { type: 'divider' },
+                { label: 'Robotic: Unitree B1', action: () => this.engine?.createUnitreeBot() }
             ],
             'Selection': [
                 { label: 'Select All', shortcut: 'Ctrl+A' },
