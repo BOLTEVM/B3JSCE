@@ -28,25 +28,37 @@ export const MiningPanel = ({ engine }: any) => {
     const statusText = data.running ? 'ACTIVE' : 'OFFLINE';
     const statusColor = data.running ? '#00ff88' : '#ff3366';
 
+    const getTabColor = (tab: string) => {
+        switch (tab) {
+            case 'fractal': return '#FFC107'; // Amber
+            case 'quai': return '#DC143C';    // Crimson
+            case 'qrl': return '#FF5722';     // Deep Orange
+            default: return '#00d4ff';
+        }
+    };
+
     return (
         <div style="padding: 12px; background: #0a0c1c; height: 100%; color: #eee; font-family: 'Segoe UI', sans-serif; box-sizing: border-box;">
             {/* Tab Bar */}
             <div style="display: flex; gap: 6px; margin-bottom: 12px; border-bottom: 1px solid #1a1b2e; padding-bottom: 6px;">
-                {['fractal', 'quai', 'qrl'].map(tab => (
-                    <button 
-                        onClick={() => setActiveTab(tab)}
-                        style={`
-                            background: ${activeTab === tab ? '#00d4ff22' : 'transparent'}; 
-                            border: 1px solid ${activeTab === tab ? '#00d4ff' : '#222'}; 
-                            color: ${activeTab === tab ? '#00d4ff' : '#666'}; 
-                            padding: 3px 10px; border-radius: 4px; cursor: pointer; 
-                            text-transform: uppercase; font-size: 8px; font-weight: 800;
-                            letter-spacing: 0.5px;
-                        `}
-                    >
-                        {tab}
-                    </button>
-                ))}
+                {['fractal', 'quai', 'qrl'].map(tab => {
+                    const tabColor = getTabColor(tab);
+                    return (
+                        <button 
+                            onClick={() => setActiveTab(tab)}
+                            style={`
+                                background: ${activeTab === tab ? tabColor + '22' : 'transparent'}; 
+                                border: 1px solid ${activeTab === tab ? tabColor : '#222'}; 
+                                color: ${activeTab === tab ? tabColor : '#666'}; 
+                                padding: 3px 10px; border-radius: 4px; cursor: pointer; 
+                                text-transform: uppercase; font-size: 8px; font-weight: 800;
+                                letter-spacing: 0.5px;
+                            `}
+                        >
+                            {tab}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* Main Metrics Area */}
@@ -74,7 +86,7 @@ export const MiningPanel = ({ engine }: any) => {
                     </div>
                 </div>
 
-                {/* Remote Node Toggle — available on all substrates */}
+                {/* Remote Node Toggle & URL Input */}
                 <div style="display: flex; align-items: center; gap: 8px; background: #131425; padding: 6px 10px; border-radius: 4px; border: 1px solid #1e203a; margin-top: -4px;">
                     <input 
                         type="checkbox" 
@@ -84,6 +96,20 @@ export const MiningPanel = ({ engine }: any) => {
                         style="cursor: pointer;" 
                     />
                     <label for="chk-remote" style="font-size: 8px; font-weight: 700; color: #8892b0; cursor: pointer; user-select: none;">REMOTE NODE</label>
+                    {useRemote && (
+                        <input 
+                            type="text" 
+                            placeholder="ws://ip:port" 
+                            value={(window as any)[`_B3_REMOTE_URL_${activeTab.toUpperCase()}`] || ''}
+                            onInput={(e: any) => {
+                                (window as any)[`_B3_REMOTE_URL_${activeTab.toUpperCase()}`] = e.target.value;
+                                if (engine && engine.mining && engine.mining.setRemoteUrl) {
+                                    engine.mining.setRemoteUrl(activeTab.toUpperCase(), e.target.value);
+                                }
+                            }}
+                            style="background: #0a0c1c; border: 1px solid #2e304a; color: #eee; font-size: 8px; padding: 3px 6px; border-radius: 2px; width: 120px; outline: none; font-family: monospace;"
+                        />
+                    )}
                 </div>
             </div>
 
