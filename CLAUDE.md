@@ -36,6 +36,7 @@ cd packages/engine/spacetime && bun run build
   - `serialization/` — Versioned save/load pipeline with ComponentSerializer registry and migration support. Save format uses versioned keys like `"Transform@2"`.
   - `shaders/` — Nodal material system (ShaderNode graph + ShaderLib chunk registry)
   - `spacetime.ts` — Client-side SpacetimeManager for real-time multiplayer sync with offline fallback to localStorage
+  - `glbParser.ts` — Hyperfy-compatible GLB parser. `processGlbPhysics(gltf, world)` reads `userData.node` extras (collider/rigidbody/mesh/lod/snap) and creates Cannon-es physics bodies with Trimesh/ConvexPolyhedron shapes. Collider meshes are auto-hidden.
   - `network.ts`, `xr.ts`, `vehicle.ts`, `combat.ts`, `audio.ts`, `inventory.ts`, `optimization.ts`, `project.ts` — Feature managers owned by B3Engine
 - **`@b3js/ui`** (`packages/ui/src/`) — Editor UI built as Web Components (webjsx, not React). `B3Editor` is a custom element (`<b3-editor>`) with Shadow DOM. Panels: Properties, LogicEditor, NodalEditor, ShaderEditor, NetworkPanel, InventoryPanel, MiningPanel, AudioPanel, OptimizationPanel, Outliner. State via nanostores in `store/`.
 - **`@b3js/web3`** (`packages/web3/src/`) — Web3 bridge. MinerClient (singleton) connects to QRL via WebSocket and Quai via HTTP polling.
