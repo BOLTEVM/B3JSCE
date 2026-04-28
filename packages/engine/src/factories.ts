@@ -227,6 +227,13 @@ export function createSpawnPoint(engine: any, name = "Spawn Point") {
     b3obj.type = "SpawnPoint";
     b3obj.metadata = { teamId: 0, spawnType: 'All' };
     
+    // Give it a static body so it stays in place but is part of the physical world
+    b3obj.body = new CANNON.Body({
+        mass: 0,
+        type: CANNON.Body.STATIC,
+        shape: new CANNON.Cylinder(0.5, 0.5, 0.1, 16)
+    });
+    
     engine.addObject(b3obj);
     return b3obj;
 }

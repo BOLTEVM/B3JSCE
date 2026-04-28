@@ -90,8 +90,16 @@ export class SpacetimeManager {
         let obj = this.engine.objects.find(o => o.id === row.id);
         
         if (!obj) {
-            console.log(`B3JS Spacetime: External object spawned -> ${row.name}`);
-            obj = this.engine.createCube(row.name);
+            console.log(`B3JS Spacetime: External object spawned -> ${row.name} (${row.type})`);
+            
+            if (row.type === 'SpawnPoint') {
+                obj = this.engine.createSpawnPoint(row.name);
+            } else if (row.type === 'Actor') {
+                obj = this.engine.createNPC(row.name);
+            } else {
+                obj = this.engine.createCube(row.name);
+            }
+            
             obj.id = row.id;
             obj.isRemote = true; 
         }

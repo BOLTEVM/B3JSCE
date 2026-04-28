@@ -82,6 +82,7 @@ export const Properties = ({
                                 if (!isNaN(v)) {
                                     engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'x', v));
                                     if (selectedObject.body) selectedObject.body.position.x = v;
+                                    if (!selectedObject.isRemote) engine.spacetime.pushUpdate(selectedObject);
                                     onRender();
                                 }
                             }} />
@@ -94,6 +95,7 @@ export const Properties = ({
                                 if (!isNaN(v)) {
                                     engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'y', v));
                                     if (selectedObject.body) selectedObject.body.position.y = v;
+                                    if (!selectedObject.isRemote) engine.spacetime.pushUpdate(selectedObject);
                                     onRender();
                                 }
                             }} />
@@ -106,6 +108,7 @@ export const Properties = ({
                                 if (!isNaN(v)) {
                                     engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'z', v));
                                     if (selectedObject.body) selectedObject.body.position.z = v;
+                                    if (!selectedObject.isRemote) engine.spacetime.pushUpdate(selectedObject);
                                     onRender();
                                 }
                             }} />

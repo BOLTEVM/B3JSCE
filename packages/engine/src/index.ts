@@ -404,6 +404,7 @@ self.onmessage = function(e) {
         const b3obj = this.objects.find(o => o.id === id);
         if (!b3obj) return;
 
+        console.log(`B3JS Engine: Removing Object -> ${b3obj.name} (${b3obj.type}, ID: ${id})`);
         [...b3obj.children].forEach(child => this.removeObject(child.id));
 
         if (b3obj.parent) {
@@ -884,6 +885,11 @@ self.onmessage = function(e) {
                     (mesh as THREE.Mesh).castShadow = true;
                 } else if (objData.type === "Skybox") {
                     mesh = new THREE.Group();
+                } else if (objData.type === "SpawnPoint") {
+                    mesh = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16),
+                        new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.5 })
+                    );
                 } else {
                     mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
                 }
