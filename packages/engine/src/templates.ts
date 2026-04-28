@@ -80,6 +80,33 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
 
     // 3. Load GLB props
     const loader = new GLTFLoader();
+
+    // BOLTEVM Hyperfy World Core Models
+    const hyperfyModels = [
+        { name: 'Bolt Base', url: '/models/bolt-base-t3.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'Bolt Elevator', url: '/models/bolt-elevator-t.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'Bolt Engine', url: '/models/bolt-engine.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'Bolt Speakers', url: '/models/bolt-speakers-t.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'Bolt Tunnel', url: '/models/bolt-tunnel.glb', pos: [0, 0, 0], scale: 1 },
+    ];
+
+
+    for (const m of hyperfyModels) {
+        try {
+            const gltf = await loader.loadAsync(m.url);
+            const mesh = gltf.scene;
+            mesh.position.fromArray(m.pos);
+            mesh.scale.setScalar(m.scale);
+            const obj = new B3Object(mesh);
+            obj.name = m.name;
+            obj.type = 'Prop';
+            obj.isStatic = true;
+            obj.modelUrl = m.url;
+            engine.addObject(obj);
+        } catch (e) { console.warn(`B3JS: ${m.name} (${m.url}) not found, skipping.`); }
+    }
+
+    // Peripheral Props
     try {
         const aiGltf = await loader.loadAsync('/ai.glb');
         const aiMesh = aiGltf.scene;
@@ -104,6 +131,7 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
         blockObj.modelUrl = '/crash-block.glb';
         engine.addObject(blockObj);
     } catch (e) { console.warn('B3JS: crash-block.glb not found, skipping.'); }
+
 
     // 4. Wallet Connect Kiosk
     const kioskGeo = new THREE.CylinderGeometry(0.6, 0.6, 1.8, 16);
