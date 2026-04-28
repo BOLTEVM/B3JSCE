@@ -232,6 +232,7 @@ export class B3Engine {
 
         window.addEventListener('resize', () => this.onResize());
         container.addEventListener('mousedown', (e) => this.handleClick(e));
+        container.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
 
         // Initialize Inline Blob Worker
         const workerCode = `
@@ -554,6 +555,14 @@ self.onmessage = function(e) {
         this.onSelectionChange(this.selectedObject);
     }
 
+    private handleWheel(e: WheelEvent) {
+        e.preventDefault();
+        const zoomSpeed = 0.05;
+        this.camera.fov += e.deltaY * zoomSpeed;
+        this.camera.fov = Math.max(10, Math.min(120, this.camera.fov));
+        this.camera.updateProjectionMatrix();
+    }
+
     private onResize() {
         this.camera.aspect = this.container.clientWidth / this.container.clientHeight;
         this.camera.updateProjectionMatrix();
@@ -630,6 +639,18 @@ self.onmessage = function(e) {
                     mesh.castShadow = true;
                 } else if (objData.type === "Light") {
                     mesh = new THREE.PointLight(0xffffff, 10, 50);
+                } else if (objData.type === "Environment") {
+                    const geo = new THREE.PlaneGeometry(80, 80);
+                    const mat = new THREE.MeshStandardMaterial({ color: 0x1a1a2e, roughness: 0.85 });
+                    mesh = new THREE.Mesh(geo, mat);
+                    (mesh as THREE.Mesh).receiveShadow = true;
+                } else if (objData.type === "Interactive") {
+                    const geo = new THREE.CylinderGeometry(0.6, 0.6, 1.8, 16);
+                    const mat = new THREE.MeshStandardMaterial({ color: 0x6366f1, metalness: 0.6, roughness: 0.3 });
+                    mesh = new THREE.Mesh(geo, mat);
+                    (mesh as THREE.Mesh).castShadow = true;
+                } else if (objData.type === "Skybox") {
+                    mesh = new THREE.Group();
                 } else {
                     mesh = new THREE.Mesh(new THREE.BoxGeometry(), new THREE.MeshStandardMaterial());
                 }
@@ -652,6 +673,31 @@ self.onmessage = function(e) {
                 if (parentB3) {
                     this.scene.remove(restored.object);
                     parentB3.addChild(restored);
+                }
+
+                // Async GLB reload for objects with a stored modelUrl
+                if (objData.modelUrl) {
+                    const loader = new GLTFLoader();
+                    loader.loadAsync(objData.modelUrl).then((gltf) => {
+                        const model = gltf.scene;
+                        // Copy transform from the placeholder onto the loaded model's parent
+                        model.position.copy(restored.object.position);
+                        model.quaternion.copy(restored.object.quaternion);
+                        model.scale.copy(restored.object.scale);
+                        // Swap the placeholder with the real model
+                        if (restored.parent) {
+                            restored.parent.object.remove(restored.object);
+                            restored.parent.object.add(model);
+                        } else {
+                            this.scene.remove(restored.object);
+                            this.scene.add(model);
+                        }
+                        restored.object = model;
+                        model.userData.b3obj = restored;
+                        console.log(`B3JS Engine: Reloaded GLB -> ${objData.modelUrl}`);
+                    }).catch((err) => {
+                        console.warn(`B3JS Engine: Failed to reload ${objData.modelUrl}`, err);
+                    });
                 }
 
                 objData.children?.forEach((childData: any) => spawnObject(childData, restored));

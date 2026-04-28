@@ -1,6 +1,7 @@
 import * as webjsx from 'webjsx';
 
 import { getCSharpCompileMode, setCSharpCompileMode } from '@b3js/engine';
+import { COLOR_SCHEMES, getActiveScheme, setActiveScheme } from '../store/colorScheme';
 
 export const SettingsModal = ({ isOpen, onClose, onRender }: any) => {
     if (!isOpen) return <div />;
@@ -9,6 +10,7 @@ export const SettingsModal = ({ isOpen, onClose, onRender }: any) => {
     const wireOpacity = localStorage.getItem('B3JS_WIRE_OPACITY') || '0.8';
     const wireColorMode = localStorage.getItem('B3JS_WIRE_COLOR_MODE') || 'typed';
     const wireCustomColor = localStorage.getItem('B3JS_WIRE_CUSTOM_COLOR') || '#e68523';
+    const activeScheme = getActiveScheme();
 
     return (
         <div class="modal-overlay" onClick={onClose}>
@@ -27,6 +29,28 @@ export const SettingsModal = ({ isOpen, onClose, onRender }: any) => {
                     <div class="prop-row">
                         <div class="prop-label">Physics Step</div>
                         <div class="prop-value">60Hz (Deterministic)</div>
+                    </div>
+                </div>
+
+                <div class="setting-card" style={`border-left-color: ${activeScheme.accent};`}>
+                    <div class="setting-title">World Color Scheme</div>
+                    <div class="prop-row" style="flex-wrap: wrap; gap: 6px;">
+                        {COLOR_SCHEMES.map((s: any) => (
+                            <div
+                                title={s.name}
+                                onClick={() => { setActiveScheme(s.id); onRender && onRender(); }}
+                                style={`
+                                    width: 28px; height: 28px; border-radius: 50%; cursor: pointer;
+                                    background: ${s.accent};
+                                    border: 2px solid ${activeScheme.id === s.id ? '#fff' : '#333'};
+                                    box-shadow: ${activeScheme.id === s.id ? `0 0 8px ${s.accent}` : 'none'};
+                                    transition: all 0.15s;
+                                `}
+                            />
+                        ))}
+                    </div>
+                    <div style="margin-top: 8px; font-size: 10px; color: #888;">
+                        Active: <span style={`color: ${activeScheme.accent}; font-weight: bold;`}>{activeScheme.name}</span>
                     </div>
                 </div>
 

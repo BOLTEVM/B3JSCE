@@ -89,6 +89,7 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
         aiObj.name = 'AI Beacon';
         aiObj.type = 'Prop';
         aiObj.isStatic = true;
+        aiObj.modelUrl = '/ai.glb';
         engine.addObject(aiObj);
     } catch (e) { console.warn('B3JS: ai.glb not found, skipping.'); }
 
@@ -100,6 +101,7 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
         blockObj.name = 'Crash Block';
         blockObj.type = 'Prop';
         blockObj.isStatic = true;
+        blockObj.modelUrl = '/crash-block.glb';
         engine.addObject(blockObj);
     } catch (e) { console.warn('B3JS: crash-block.glb not found, skipping.'); }
 

@@ -2,6 +2,7 @@ import * as webjsx from 'webjsx';
 import * as THREE from 'three';
 import { B3Engine, B3Object, Sensor, Controller, Actuator, KeyboardSensor, AndController, MotionActuator, PIN_COLORS } from '@b3js/engine';
 import { selectObject as storeSelectObject } from './store/selectionStore';
+import { getActiveScheme } from './store/colorScheme';
 
 // Component Imports
 import { Header } from './components/Header';
@@ -516,8 +517,9 @@ export class B3Editor extends HTMLElement {
     }
 
     render() {
+        const scheme = getActiveScheme();
         webjsx.applyDiff(this.root, (
-            <div id="editor-root" style={`grid-template-rows: 40px 1fr 1fr 4px ${this.logicHeight}px 100px;`}>
+            <div id="editor-root" style={`--accent: ${scheme.accent}; --accent-light: ${scheme.accentLight}; grid-template-rows: 40px 1fr 1fr 4px ${this.logicHeight}px 100px;`}>
                 <style>{`
                     #editor-root {
                         display: grid;
@@ -539,7 +541,7 @@ export class B3Editor extends HTMLElement {
                     .tools { grid-area: tools; background: #232323; align-items: center; padding-top: 10px; display: flex; flex-direction: column; }
                     .viewport { grid-area: viewport; background: #000; position: relative; border: 2px solid #333; min-height: 100px; }
                     .resizer { grid-area: resizer; background: #333; cursor: ns-resize; transition: background 0.2s; }
-                    .resizer:hover { background: #e68523; }
+                    .resizer:hover { background: var(--accent); }
                     .logic { grid-area: logic; background: #1a1a1a; position: relative; border-top: 1px solid #111; overflow: hidden; }
                     .outliner { grid-area: outliner; }
                     .properties { grid-area: properties; }
@@ -552,21 +554,21 @@ export class B3Editor extends HTMLElement {
                     .menu-item:hover, .menu-item.active { background: #222; color: #fff; }
                     .dropdown-menu { position: absolute; top: 100%; left: 0; min-width: 160px; background: rgba(30,30,30,0.95); backdrop-filter: blur(10px); border: 1px solid #444; border-radius: 4px; padding: 4px 0; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 2000; display: flex; flex-direction: column; }
                     .dropdown-item { padding: 6px 12px; display: flex; justify-content: space-between; align-items: center; color: #ddd; white-space: nowrap; }
-                    .dropdown-item:hover { background: #e68523; color: #fff; }
+                    .dropdown-item:hover { background: var(--accent); color: #fff; }
                     .dropdown-shortcut { font-size: 9px; opacity: 0.5; margin-left: 12px; }
                     .dropdown-divider { height: 1px; background: #333; margin: 4px 0; }
 
                     /* Sidebar Styles */
                     .tool-btn { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; cursor: pointer; margin-bottom: 8px; border-radius: 4px; font-size: 16px; border: 1px solid transparent; transition: all 0.2s; }
                     .tool-btn:hover { background: #3d3d3d; }
-                    .tool-btn.active { background: #e68523; color: white; border-color: #ff9d42; }
+                    .tool-btn.active { background: var(--accent); color: white; border-color: var(--accent-light); }
                     .sidebar-category { font-size: 8px; font-weight: 800; color: #555; margin: 12px 0 6px 0; text-transform: uppercase; width: 100%; text-align: center; }
                     .sidebar-hr { width: 30px; border: 0.5px solid #333; margin: 8px 0; }
 
                     /* Outliner & Properties Styles */
                     .tree-item { padding: 4px 12px; cursor: pointer; display: flex; align-items: center; }
                     .tree-item:hover { background: #353535; }
-                    .tree-item.selected { background: #4b4b4b; color: #e68523; }
+                    .tree-item.selected { background: #4b4b4b; color: var(--accent); }
                     .icon { margin-right: 8px; opacity: 0.6; }
                     .tree-indent { margin-left: 14px; border-left: 1px solid #333; }
                     .prop-row { padding: 8px; display: flex; border-bottom: 1px solid #333; }
@@ -581,12 +583,12 @@ export class B3Editor extends HTMLElement {
                     .node-card { position: absolute; width: 140px; background: #222; border: 1px solid #444; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); font-size: 10px; cursor: default; }
                     .node-header { padding: 4px 8px; font-weight: bold; cursor: move; color: #fff; }
                     .node-sensor { border-top: 2px solid #00ff88; }
-                    .node-controller { border-top: 2px solid #e68523; }
+                    .node-controller { border-top: 2px solid var(--accent); }
                     .node-actuator { border-top: 2px solid #00d4ff; }
                     .node-body { padding: 8px; }
                     .pin { width: 10px; height: 10px; border-radius: 50%; background: #444; margin: 4px 0; position: relative; border: 1px solid #666; }
-                    .pin-connected { background: #e68523; border-color: #fff; }
-                    .logic-brick { background: #333; border: 1px solid #444; margin: 4px; padding: 6px; border-radius: 4px; border-left: 3px solid #e68523; position: relative; }
+                    .pin-connected { background: var(--accent); border-color: #fff; }
+                    .logic-brick { background: #333; border: 1px solid #444; margin: 4px; padding: 6px; border-radius: 4px; border-left: 3px solid var(--accent); position: relative; }
                     .delete-btn { position: absolute; right: 4px; top: 4px; cursor: pointer; opacity: 0.5; font-size: 10px; }
                     .delete-btn:hover { opacity: 1; color: #ff3366; }
 

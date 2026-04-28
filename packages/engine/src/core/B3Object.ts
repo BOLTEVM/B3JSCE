@@ -54,6 +54,9 @@ export class B3Object {
     children: B3Object[] = [];
     metadata: any = {};
 
+    // Asset URL for GLB/GLTF models (persisted for deserialization reload)
+    modelUrl: string = "";
+
     // Shader Graph Support
     isNodalMaterial: boolean = false;
     materialNodes: ShaderNode[] = [];
@@ -450,6 +453,7 @@ export class B3Object {
             isWeapon: this.isWeapon,
             weaponMode: this.weaponMode,
             metadata: this.metadata,
+            modelUrl: this.modelUrl,
             damage: this.damage,
             projectileForce: this.projectileForce,
             fireRate: this.fireRate,
@@ -497,6 +501,7 @@ export class B3Object {
         obj.isWeapon = data.isWeapon || false;
         obj.weaponMode = data.weaponMode || 'physical';
         obj.metadata = data.metadata || {};
+        obj.modelUrl = data.modelUrl || "";
         obj.damage = data.damage ?? 10;
         obj.projectileForce = data.projectileForce ?? 50;
         obj.fireRate = data.fireRate ?? 0.5;
