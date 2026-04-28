@@ -6,6 +6,7 @@ import { CollisionSensor } from './logic/sensors';
 import { AndController } from './logic/controllers';
 import { Web3ConnectActuator } from './logic/actuators';
 import { createProceduralSky } from './logic/nodes/skybox';
+import { processGlbPhysics } from './glbParser';
 
 /**
  * Scene template generators. Each accepts a B3Engine reference.
@@ -83,27 +84,27 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
 
     // BOLTEVM Hyperfy World Core Models
     const hyperfyModels = [
-        { name: 'Bolt Base', url: '/models/bolt-base-t3.glb', pos: [0, 0, 0], scale: 1 },
-        { name: 'Bolt Elevator', url: '/models/bolt-elevator-t.glb', pos: [0, 0, 0], scale: 1 },
-        { name: 'Bolt Engine', url: '/models/bolt-engine.glb', pos: [0, 0, 0], scale: 1 },
-        { name: 'Bolt Speakers', url: '/models/bolt-speakers-t.glb', pos: [0, 0, 0], scale: 1 },
-        { name: 'Bolt Tunnel', url: '/models/bolt-tunnel.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'Bolt Base', url: '/models/bolt-base-t3.glb', pos: [0, 0, 0], scale: 1 }
     ];
 
 
     for (const m of hyperfyModels) {
         try {
             const gltf = await loader.loadAsync(m.url);
-            const mesh = gltf.scene;
-            mesh.position.fromArray(m.pos);
-            mesh.scale.setScalar(m.scale);
-            const obj = new B3Object(mesh);
+            const physics = processGlbPhysics(gltf, engine.world);
+            gltf.scene.position.fromArray(m.pos);
+            gltf.scene.scale.setScalar(m.scale);
+            const obj = new B3Object(gltf.scene);
             obj.name = m.name;
             obj.type = 'Prop';
             obj.isStatic = true;
             obj.modelUrl = m.url;
+            if (physics.bodies.length > 0) {
+                obj.body = physics.bodies[0].body;
+            }
             engine.addObject(obj);
-        } catch (e) { console.warn(`B3JS: ${m.name} (${m.url}) not found, skipping.`); }
+            console.log(`B3JS: ${m.name} loaded (${physics.bodies.length} bodies, ${physics.colliderMeshes.length} colliders)`);
+        } catch (e) { console.warn(`B3JS: ${m.name} (${m.url}) not found, skipping.`, e); }
     }
 
     // Peripheral Props

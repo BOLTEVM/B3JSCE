@@ -21,6 +21,7 @@ import { RoboticsManager } from './robotics/RoboticsManager';
 import { UnitreeManager } from './robotics/UnitreeManager';
 import { DigitalTwinSystem } from './robotics/DigitalTwinSystem';
 import { MiningManager } from './mining';
+import { processGlbPhysics } from './glbParser';
 
 // ─── Core Module Re-exports ────────────────────────────────────
 export { B3Object } from './core/B3Object';
@@ -41,6 +42,7 @@ export * from './audio';
 export * from './audio_sources';
 export * from './ecs';
 export * from './serialization';
+export * from './glbParser';
 export { registerShaderChunk, getShaderChunk, getShaderChunkNames } from './shaders/ShaderLib';
 export * from './ai_nodes';
 
@@ -758,6 +760,7 @@ self.onmessage = function(e) {
             } else {
                 const loader = new GLTFLoader(manager);
                 loader.load(url, (gltf) => {
+                    processGlbPhysics(gltf, this.world);
                     const obj = new B3Object(gltf.scene);
                     obj.name = file.name;
                     this.addObject(obj);
