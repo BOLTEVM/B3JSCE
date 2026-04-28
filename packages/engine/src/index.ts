@@ -60,7 +60,7 @@ import { HistoryManager, MoveObjectCommand, ScaleObjectCommand } from './core/hi
 import { registerShaderNodeType } from './core/registry';
 import { KeyboardSensor, CollisionSensor } from './logic/sensors';
 import { AndController, PythonController } from './logic/controllers';
-import { MotionActuator, InventoryActuator, MiningActuator } from './logic/actuators';
+import { MotionActuator, InventoryActuator, MiningActuator, SpawnActuator } from './logic/actuators';
 import { Sensor, Controller, Actuator } from './logic/base';
 import {
     ShaderNode, ShaderMaterialGenerator, OutputNode, UniformManager,
@@ -86,6 +86,7 @@ registerSensorType('SightSensor', (d) => SightSensor.fromJSON(d));
 registerActuatorType('NavMoveActuator', (d) => NavMoveActuator.fromJSON(d));
 registerActuatorType('BoneLookAtActuator', (d) => BoneLookAtActuator.fromJSON(d));
 registerActuatorType('BoneTransformActuator', (d) => BoneTransformActuator.fromJSON(d));
+registerActuatorType('SpawnActuator', (d) => SpawnActuator.fromJSON(d));
 
 /**
  * Main Engine Orchestrator
@@ -467,6 +468,33 @@ self.onmessage = function(e) {
     createHealthPickup(name = "Medkit") { return Factories.createHealthPickup(this, name); }
     createAdvancedActor(name = "Tactical Hero") { return Factories.createAdvancedActor(this, name); }
     createUnitreeBot(name = "Unitree B1") { return Factories.createUnitreeBot(this, name); }
+    createSpawnPoint(name = "Spawn Point") { return Factories.createSpawnPoint(this, name); }
+
+    spawnActor(actorType: string, teamId: number = 0) {
+        const spawnPoints = this.objects.filter(o => o.type === 'SpawnPoint' && (o.metadata.teamId === teamId || o.metadata.teamId === 0));
+        
+        let spawnPos = new THREE.Vector3(0, 5, 0);
+        if (spawnPoints.length > 0) {
+            const sp = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
+            spawnPos.copy(sp.object.position);
+            spawnPos.y += 1;
+        }
+
+        let newObj: B3Object | null = null;
+        if (actorType === 'Basic NPC') newObj = this.createNPC();
+        else if (actorType === 'Tactical Hero') newObj = this.createAdvancedActor();
+        else newObj = this.createCube();
+
+        if (newObj) {
+            newObj.object.position.copy(spawnPos);
+            if (newObj.body) {
+                newObj.body.position.copy(spawnPos as any);
+                newObj.body.velocity.set(0, 0, 0);
+            }
+            newObj.teamId = teamId;
+        }
+        return newObj;
+    }
 
     // ─── Scene Management ──────────────────────────────────────
     createNewScene(name: string) {

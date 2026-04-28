@@ -245,3 +245,37 @@ export class InventoryActuator extends Actuator {
         return n;
     }
 }
+
+export class SpawnActuator extends Actuator {
+    private _timer = 0;
+    constructor(public actorType: string = 'Basic NPC', public teamId: number = 0, public interval: number = 5.0) {
+        super();
+    }
+    getTypeName() { return 'SpawnActuator'; }
+    execute(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) {
+        this._timer += delta;
+        if (this._timer >= this.interval) {
+            this._timer = 0;
+            if ((engine as any).spawnActor) {
+                (engine as any).spawnActor(this.actorType, this.teamId);
+            }
+        }
+    }
+    update(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) {
+        // Only run if triggered
+    }
+    toJSON() { 
+        return { 
+            ...super.toJSON(), 
+            type: 'SpawnActuator', 
+            actorType: this.actorType, 
+            teamId: this.teamId, 
+            interval: this.interval 
+        }; 
+    }
+    static fromJSON(data: any): SpawnActuator {
+        const n = new SpawnActuator(data.actorType, data.teamId, data.interval);
+        n.id = data.id; n.guiMetadata = data.guiMetadata; n.enabled = data.enabled;
+        return n;
+    }
+}

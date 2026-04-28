@@ -795,7 +795,9 @@ export class B3Editor extends HTMLElement {
                 { label: 'Pickup: Ammo Box', action: () => this.engine?.createAmmoPickup() },
                 { label: 'Pickup: Medkit', action: () => this.engine?.createHealthPickup() },
                 { type: 'divider' },
-                { label: 'Robotic: Unitree B1', action: () => this.engine?.createUnitreeBot() }
+                { label: 'Robotic: Unitree B1', action: () => this.engine?.createUnitreeBot() },
+                { type: 'divider' },
+                { label: 'System: Spawn Point', action: () => this.engine?.createSpawnPoint() }
             ],
             'Selection': [
                 { label: 'Select All', shortcut: 'Ctrl+A' },

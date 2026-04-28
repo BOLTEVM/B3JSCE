@@ -182,6 +182,7 @@ export const Properties = ({
             <div style="display: flex; gap: 4px; margin-top: 10px;">
                 <button style="font-size: 9px; flex: 1; cursor: pointer;" onClick={() => { selectedObject.addController(new (engine.constructor as any).AndController()); onRender(); }}>+ AND</button>
                 <button style="font-size: 9px; flex: 1; cursor: pointer;" onClick={() => { selectedObject.addController(new (engine.constructor as any).PythonController()); onRender(); }}>+ Python</button>
+                <button style="font-size: 9px; flex: 1; cursor: pointer;" onClick={() => { selectedObject.addActuator(new (engine.constructor as any).SpawnActuator()); onRender(); }}>+ Spawn</button>
             </div>
 
             {/* Actuators */}
@@ -192,6 +193,27 @@ export const Properties = ({
                         selectedObject.removeActuator(a);
                         onRender();
                     }}>✕</span>
+
+                    {a.getTypeName() === 'SpawnActuator' && (
+                        <div style="margin-top: 8px; border-top: 1px solid #444; padding-top: 8px;">
+                            <div class="prop-row" style="border:none; padding: 2px 0;">
+                                <div class="prop-label" style="font-size: 8px; width: 60px;">Actor Type</div>
+                                <select value={a.actorType} onInput={(e: any) => { a.actorType = e.target.value; onRender(); }}>
+                                    <option value="Basic NPC">Basic NPC</option>
+                                    <option value="Tactical Hero">Tactical Hero</option>
+                                    <option value="Primitive">Cube (Dummy)</option>
+                                </select>
+                            </div>
+                            <div class="prop-row" style="border:none; padding: 2px 0;">
+                                <div class="prop-label" style="font-size: 8px; width: 60px;">Team ID</div>
+                                <input type="number" value={a.teamId.toString()} onInput={(e: any) => { a.teamId = parseInt(e.target.value); onRender(); }} />
+                            </div>
+                            <div class="prop-row" style="border:none; padding: 2px 0;">
+                                <div class="prop-label" style="font-size: 8px; width: 60px;">Interval (s)</div>
+                                <input type="number" step="0.5" value={a.interval.toString()} onInput={(e: any) => { a.interval = parseFloat(e.target.value); onRender(); }} />
+                            </div>
+                        </div>
+                    )}
                 </div>
             ))}
 

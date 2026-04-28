@@ -216,3 +216,17 @@ export function createUnitreeBot(engine: any, name = "Unitree B1") {
 
     return bot;
 }
+
+export function createSpawnPoint(engine: any, name = "Spawn Point") {
+    const mesh = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16),
+        new THREE.MeshBasicMaterial({ color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.5 })
+    );
+    const b3obj = new B3Object(mesh);
+    b3obj.name = name;
+    b3obj.type = "SpawnPoint";
+    b3obj.metadata = { teamId: 0, spawnType: 'All' };
+    
+    engine.addObject(b3obj);
+    return b3obj;
+}
