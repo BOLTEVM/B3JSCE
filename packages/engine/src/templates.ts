@@ -225,5 +225,13 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
         engine.addObject(pObj);
     });
 
+    // 6. User Spawn Point
+    const spawn = engine.createSpawnPoint("User Spawn");
+    spawn.object.position.set(-17.4628, 0, 15.1885);
+    if (spawn.body) {
+        spawn.body.position.set(-17.4628, 0, 15.1885);
+    }
+    spawn.metadata.teamId = 0; // All teams/wildcard
+
     console.log(`B3JS Engine: ${name} Template Generated Successfully.`);
 }
