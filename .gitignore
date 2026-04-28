@@ -46,3 +46,6 @@ out/
 
 # Bun
 bun.lockb
+
+# Plugkit
+.plugkit-browser-profile/
