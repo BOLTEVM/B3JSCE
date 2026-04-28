@@ -138,6 +138,7 @@ export class B3Engine {
     private raycaster = new THREE.Raycaster();
     private mouse = new THREE.Vector2();
     private onSelectionChange: (obj: B3Object | null) => void = () => { };
+    keysDown: Set<string> = new Set();
 
     constructor(private container: HTMLElement) {
         this.scene = new THREE.Scene();
@@ -233,8 +234,52 @@ export class B3Engine {
         this.scene.add(this.gizmo.getHelper());
 
         window.addEventListener('resize', () => this.onResize());
-        container.addEventListener('mousedown', (e) => this.handleClick(e));
+        window.addEventListener('keydown', (e) => this.keysDown.add(e.code));
+        window.addEventListener('keyup', (e) => this.keysDown.delete(e.code));
         container.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
+
+        let isDraggingCam = false;
+        let dragThreshold = 5;
+        let startX = 0;
+        let startY = 0;
+
+        container.addEventListener('mousedown', (e) => {
+            // Check if we hit the gizmo first
+            const rect = this.container.getBoundingClientRect();
+            this.mouse.x = ((e.clientX - rect.left) / this.container.clientWidth) * 2 - 1;
+            this.mouse.y = -((e.clientY - rect.top) / this.container.clientHeight) * 2 + 1;
+            this.raycaster.setFromCamera(this.mouse, this.camera);
+            const gizmoIntersects = this.raycaster.intersectObjects(this.gizmo.getHelper().children, true);
+            
+            if (gizmoIntersects.length > 0) {
+                isDraggingCam = false;
+                return;
+            }
+
+            startX = e.clientX;
+            startY = e.clientY;
+            isDraggingCam = true;
+        });
+
+        window.addEventListener('mouseup', (e) => {
+            const diffX = Math.abs(e.clientX - startX);
+            const diffY = Math.abs(e.clientY - startY);
+            
+            if (isDraggingCam && diffX < dragThreshold && diffY < dragThreshold) {
+                // If it was a static click (not a drag), handle object selection
+                this.handleClick(e);
+            }
+            isDraggingCam = false;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDraggingCam) {
+                const sensitivity = 0.002;
+                this.camera.rotation.y -= e.movementX * sensitivity;
+                this.camera.rotation.x -= e.movementY * sensitivity;
+                this.camera.rotation.order = 'YXZ';
+            }
+        });
 
         // Initialize Inline Blob Worker
         const workerCode = `
@@ -580,6 +625,22 @@ self.onmessage = function(e) {
         this.timer.update();
         const delta = Math.min(this.timer.getDelta(), 0.1);
 
+        // Editor Camera Navigation (Shift + WASD)
+        if (this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight')) {
+            const speed = 20 * delta;
+            const dir = new THREE.Vector3();
+            if (this.keysDown.has('KeyW')) dir.z -= 1;
+            if (this.keysDown.has('KeyS')) dir.z += 1;
+            if (this.keysDown.has('KeyA')) dir.x -= 1;
+            if (this.keysDown.has('KeyD')) dir.x += 1;
+            
+            if (dir.lengthSq() > 0) {
+                dir.normalize();
+                dir.applyQuaternion(this.camera.quaternion);
+                this.camera.position.addScaledVector(dir, speed);
+            }
+        }
+
         if (!this.isPaused) {
             this.ecs.tick(delta);
             this.world.step(1 / 60, delta);
@@ -696,7 +757,8 @@ self.onmessage = function(e) {
                         }
                         restored.object = model;
                         model.userData.b3obj = restored;
-                        console.log(`B3JS Engine: Reloaded GLB -> ${objData.modelUrl}`);
+                        restored.extractMetadata();
+                        console.log(`B3JS Engine: Reloaded GLB and extracted metadata -> ${objData.modelUrl}`);
                     }).catch((err) => {
                         console.warn(`B3JS Engine: Failed to reload ${objData.modelUrl}`, err);
                     });

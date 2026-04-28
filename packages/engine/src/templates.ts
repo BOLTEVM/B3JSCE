@@ -83,29 +83,80 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
     const loader = new GLTFLoader();
 
     // BOLTEVM Hyperfy World Core Models
-    const hyperfyModels = [
-        { name: 'Bolt Base', url: '/models/bolt-base-t3.glb', pos: [0, 0, 0], scale: 1 }
-    ];
+    let baseObj: B3Object | null = null;
+    try {
+        const gltf = await loader.loadAsync('/models/bolt-base-t3.glb');
+        const physics = processGlbPhysics(gltf, engine.world);
+        gltf.scene.position.set(0, 0, 0);
+        gltf.scene.scale.setScalar(1);
 
+        baseObj = new B3Object(gltf.scene);
+        baseObj.name = 'Bolt Base';
+        baseObj.type = 'Prop';
+        baseObj.isStatic = true;
+        baseObj.modelUrl = '/models/bolt-base-t3.glb';
+        if (physics.bodies.length > 0) {
+            baseObj.body = physics.bodies[0].body;
+        }
+        engine.addObject(baseObj);
+        console.log(`B3JS: Bolt Base loaded (${physics.bodies.length} bodies, ${physics.colliderMeshes.length} colliders)`);
+    } catch (e) { console.warn('B3JS: Bolt Base not found, skipping.', e); }
+
+    const hyperfyModels: Array<{name: string, url: string, pos?: number[], scale?: number, snap?: string}> = [
+        { name: 'Bolt Elevator', url: '/models/bolt-elevator-t.glb', snap: 'SnapPoint.033', pos: [0, 9.91, 0], scale: 1 },
+        { name: 'Bolt Engine', url: '/models/bolt-engine.glb', pos: [0,0,0], scale: 1 },
+        { name: 'Bolt Speakers', url: '/models/bolt-speakers-t.glb', snap: 'speaker_mount', pos: [0,0,0], scale: 1 },
+        { name: 'Bolt Tunnel', url: '/models/bolt-tunnel.glb', pos: [0,0,0], scale: 1 },
+    ];
 
     for (const m of hyperfyModels) {
         try {
             const gltf = await loader.loadAsync(m.url);
             const physics = processGlbPhysics(gltf, engine.world);
-            gltf.scene.position.fromArray(m.pos);
-            gltf.scene.scale.setScalar(m.scale);
+            
+            if (m.scale !== undefined) {
+                gltf.scene.scale.setScalar(m.scale);
+            }
+
             const obj = new B3Object(gltf.scene);
             obj.name = m.name;
             obj.type = 'Prop';
             obj.isStatic = true;
             obj.modelUrl = m.url;
+            
             if (physics.bodies.length > 0) {
                 obj.body = physics.bodies[0].body;
             }
+            
+            // Positioning: Try snappoint first, then fallback to pos
+            let finalPos = new THREE.Vector3();
+            if (m.pos) finalPos.fromArray(m.pos);
+            
+            if (m.snap && baseObj) {
+                const snapPos = (baseObj as any).getSnappointPosition?.(m.snap);
+                if (snapPos) {
+                    finalPos.copy(snapPos);
+                    console.log(`B3JS Template: Snapped ${m.name} to '${m.snap}' at`, finalPos);
+                } else if ((baseObj as any).snappoints) {
+                    // Search for partial match in snappoint names
+                    for (const [snapName, snapObj] of (baseObj as any).snappoints) {
+                        if (snapName.toLowerCase().includes(m.name.split(' ')[1].toLowerCase())) {
+                            snapObj.getWorldPosition(finalPos);
+                            console.log(`B3JS Template: Fuzzy-snapped ${m.name} to '${snapName}' at`, finalPos);
+                            break;
+                        }
+                    }
+                }
+            }
+            obj.object.position.copy(finalPos);
+            if (obj.body) {
+                obj.body.position.copy(finalPos as any);
+            }
             engine.addObject(obj);
             console.log(`B3JS: ${m.name} loaded (${physics.bodies.length} bodies, ${physics.colliderMeshes.length} colliders)`);
-        } catch (e) { console.warn(`B3JS: ${m.name} (${m.url}) not found, skipping.`, e); }
+        } catch (e) { console.warn(`B3JS: ${m.name} (${m.url}) failed to load.`, e); }
     }
+
 
     // Peripheral Props
     try {

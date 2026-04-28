@@ -77,23 +77,29 @@ export const Properties = ({
                     <input type="number" step="0.1" value={selectedObject.object.position.x.toString()} 
                         onInput={(e: any) => {
                             const v = parseFloat(e.target.value);
-                            engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'x', v));
-                            if (selectedObject.body) selectedObject.body.position.x = v;
-                            onRender();
+                            if (!isNaN(v)) {
+                                engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'x', v));
+                                if (selectedObject.body) selectedObject.body.position.x = v;
+                                onRender();
+                            }
                         }} />
                     <input type="number" step="0.1" value={selectedObject.object.position.y.toString()} 
                         onInput={(e: any) => {
                             const v = parseFloat(e.target.value);
-                            engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'y', v));
-                            if (selectedObject.body) selectedObject.body.position.y = v;
-                            onRender();
+                            if (!isNaN(v)) {
+                                engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'y', v));
+                                if (selectedObject.body) selectedObject.body.position.y = v;
+                                onRender();
+                            }
                         }} />
                     <input type="number" step="0.1" value={selectedObject.object.position.z.toString()} 
                         onInput={(e: any) => {
                             const v = parseFloat(e.target.value);
-                            engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'z', v));
-                            if (selectedObject.body) selectedObject.body.position.z = v;
-                            onRender();
+                            if (!isNaN(v)) {
+                                engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'z', v));
+                                if (selectedObject.body) selectedObject.body.position.z = v;
+                                onRender();
+                            }
                         }} />
                 </div>
             </div>

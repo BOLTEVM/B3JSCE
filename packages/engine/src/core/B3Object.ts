@@ -151,6 +151,9 @@ export class B3Object {
     bones: Map<string, THREE.Bone> = new Map();
     activeAnimations: Map<string, THREE.AnimationAction> = new Map();
 
+    // GLTF Metadata & Snappoints
+    public snappoints: Map<string, THREE.Object3D> = new Map();
+
     constructor(public object: THREE.Object3D) {
         this.ecsEntityId = createEntity();
         this.object.userData.b3obj = this;
@@ -169,7 +172,9 @@ export class B3Object {
         } else {
             this.standardMaterial = new THREE.MeshStandardMaterial({ color: 0x444444 });
         }
+        
         this.initSockets();
+        this.extractMetadata();
     }
 
     setEngineRef(engine: any) {
@@ -214,10 +219,99 @@ export class B3Object {
                 });
             }
 
-            console.log(`B3JS Engine: Avatar Loaded Successfully. Found ${this.bones.size} bones and ${this.activeAnimations.size} animations.`);
+            this.extractMetadata();
+
+            console.log(`B3JS Engine: Avatar Loaded Successfully. Found ${this.bones.size} bones, ${this.snappoints.size} snappoints, and ${this.activeAnimations.size} animations.`);
         } catch (e) {
             console.error(`B3JS Engine: Failed to load avatar ${url}`, e);
         }
+    }
+
+    /**
+     * Traverses the 3D object to extract snappoints and generate colliders from metadata.
+     */
+    public extractMetadata() {
+        this.snappoints.clear();
+        const foundSnaps: string[] = [];
+        const foundColliders: string[] = [];
+
+        this.object.traverse((child) => {
+            const data = child.userData;
+            if (!data) return;
+
+            // 1. Snappoints (Explicit 'snappoint' property or 'SNAP_' prefix)
+            if (data.snappoint || data.node === 'snap' || child.name.toLowerCase().startsWith('snap')) {
+                const name = data.snappoint || data.name || child.name;
+                this.snappoints.set(name, child);
+                foundSnaps.push(name);
+            }
+
+            // 2. Physics Colliders from Metadata
+            if (data.collider) {
+                this.generatePhysicsFromMetadata(child, data.collider);
+                foundColliders.push(`${child.name}(${data.collider})`);
+            }
+
+            // 3. Sync other custom properties to B3Object metadata
+            Object.assign(this.metadata, data);
+        });
+
+        if (foundSnaps.length > 0 || foundColliders.length > 0) {
+            console.log(`B3JS Engine: Metadata Extraction for ${this.name}:`, {
+                snappoints: foundSnaps,
+                colliders: foundColliders
+            });
+        }
+    }
+
+    private generatePhysicsFromMetadata(child: THREE.Object3D, type: string) {
+        if (!this.body) {
+            this.body = new CANNON.Body({ mass: this.isStatic ? 0 : 1 });
+            this._physicsDirty = true;
+        }
+
+        const worldPos = new THREE.Vector3();
+        const worldQuat = new THREE.Quaternion();
+        const worldScale = new THREE.Vector3();
+        child.updateMatrixWorld(true);
+        child.getWorldPosition(worldPos);
+        child.getWorldQuaternion(worldQuat);
+        child.getWorldScale(worldScale);
+
+        // Relative offset from B3Object origin
+        const offset = worldPos.clone().sub(this.object.position);
+        
+        let shape: CANNON.Shape;
+        if (type === 'box') {
+            const bbox = new THREE.Box3().setFromObject(child);
+            const size = new THREE.Vector3();
+            bbox.getSize(size);
+            shape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2));
+        } else if (type === 'sphere') {
+            const bsphere = new THREE.Sphere();
+            new THREE.Box3().setFromObject(child).getBoundingSphere(bsphere);
+            shape = new CANNON.Sphere(bsphere.radius);
+        } else if (type === 'plane') {
+            shape = new CANNON.Plane();
+        } else {
+            // Default to box if unknown
+            const bbox = new THREE.Box3().setFromObject(child);
+            const size = new THREE.Vector3();
+            bbox.getSize(size);
+            shape = new CANNON.Box(new CANNON.Vec3(size.x / 2, size.y / 2, size.z / 2));
+        }
+
+        this.body.addShape(shape, offset as any, worldQuat as any);
+        this.body.updateBoundingRadius();
+    }
+
+    /** Returns the world position of a snappoint by name. */
+    public getSnappointPosition(name: string): THREE.Vector3 | null {
+        const snap = this.snappoints.get(name);
+        if (!snap) return null;
+        const pos = new THREE.Vector3();
+        snap.getWorldPosition(pos);
+        return pos;
     }
 
     private rebindSocketsToModel(model: THREE.Group) {
