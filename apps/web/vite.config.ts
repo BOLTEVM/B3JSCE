@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import path from 'path';
+import { readFileSync } from 'fs';
 
 export default defineConfig({
   resolve: {
@@ -26,4 +27,27 @@ export default defineConfig({
       },
     },
   },
+  plugins: [
+    {
+      name: 'serve-monorepo-assets',
+      configureServer(server) {
+        const assetsDir = path.resolve(__dirname, '../../assets');
+        server.middlewares.use((req, res, next) => {
+          if (req.url?.startsWith('/models/') || req.url?.startsWith('/assets/')) {
+            const relativePath = req.url.replace(/^\/assets\//, '').replace(/^\/models\//, 'models/');
+            const filePath = path.join(assetsDir, relativePath);
+            try {
+              const data = readFileSync(filePath);
+              res.end(data);
+            } catch {
+              res.statusCode = 404;
+              res.end('Not found');
+            }
+            return;
+          }
+          next();
+        });
+      },
+    },
+  ],
 });
