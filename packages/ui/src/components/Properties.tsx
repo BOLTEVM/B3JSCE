@@ -74,33 +74,42 @@ export const Properties = ({
             <div class="prop-row">
                 <div class="prop-label">Position</div>
                 <div class="prop-grid">
-                    <input type="number" step="0.1" value={selectedObject.object.position.x.toString()} 
-                        onInput={(e: any) => {
-                            const v = parseFloat(e.target.value);
-                            if (!isNaN(v)) {
-                                engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'x', v));
-                                if (selectedObject.body) selectedObject.body.position.x = v;
-                                onRender();
-                            }
-                        }} />
-                    <input type="number" step="0.1" value={selectedObject.object.position.y.toString()} 
-                        onInput={(e: any) => {
-                            const v = parseFloat(e.target.value);
-                            if (!isNaN(v)) {
-                                engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'y', v));
-                                if (selectedObject.body) selectedObject.body.position.y = v;
-                                onRender();
-                            }
-                        }} />
-                    <input type="number" step="0.1" value={selectedObject.object.position.z.toString()} 
-                        onInput={(e: any) => {
-                            const v = parseFloat(e.target.value);
-                            if (!isNaN(v)) {
-                                engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'z', v));
-                                if (selectedObject.body) selectedObject.body.position.z = v;
-                                onRender();
-                            }
-                        }} />
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <span style="font-size: 8px; color: #666; font-weight: bold; text-align: center;">X</span>
+                        <input type="number" step="0.1" value={selectedObject.object.position.x.toString()} 
+                            onInput={(e: any) => {
+                                const v = parseFloat(e.target.value);
+                                if (!isNaN(v)) {
+                                    engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'x', v));
+                                    if (selectedObject.body) selectedObject.body.position.x = v;
+                                    onRender();
+                                }
+                            }} />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <span style="font-size: 8px; color: #666; font-weight: bold; text-align: center;">Y</span>
+                        <input type="number" step="0.1" value={selectedObject.object.position.y.toString()} 
+                            onInput={(e: any) => {
+                                const v = parseFloat(e.target.value);
+                                if (!isNaN(v)) {
+                                    engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'y', v));
+                                    if (selectedObject.body) selectedObject.body.position.y = v;
+                                    onRender();
+                                }
+                            }} />
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                        <span style="font-size: 8px; color: #666; font-weight: bold; text-align: center;">Z</span>
+                        <input type="number" step="0.1" value={selectedObject.object.position.z.toString()} 
+                            onInput={(e: any) => {
+                                const v = parseFloat(e.target.value);
+                                if (!isNaN(v)) {
+                                    engine.history.execute(new SetPropertyCommand(selectedObject.object.position, 'z', v));
+                                    if (selectedObject.body) selectedObject.body.position.z = v;
+                                    onRender();
+                                }
+                            }} />
+                    </div>
                 </div>
             </div>
 

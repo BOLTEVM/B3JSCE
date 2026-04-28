@@ -63,6 +63,24 @@ export class MoveObjectCommand implements Command {
     }
 }
 
+export class ScaleObjectCommand implements Command {
+    constructor(
+        private obj: B3Object,
+        private oldScale: THREE.Vector3,
+        private newScale: THREE.Vector3
+    ) {}
+
+    execute() {
+        this.obj.object.scale.copy(this.newScale);
+        (this.obj as any)._physicsDirty = true;
+    }
+
+    undo() {
+        this.obj.object.scale.copy(this.oldScale);
+        (this.obj as any)._physicsDirty = true;
+    }
+}
+
 export class SetPropertyCommand implements Command {
     private oldValue: any;
     constructor(

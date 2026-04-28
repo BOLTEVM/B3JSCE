@@ -25,7 +25,7 @@ import { processGlbPhysics } from './glbParser';
 
 // ─── Core Module Re-exports ────────────────────────────────────
 export { B3Object } from './core/B3Object';
-export { HistoryManager, MoveObjectCommand, SetPropertyCommand } from './core/history';
+export { HistoryManager, MoveObjectCommand, ScaleObjectCommand, SetPropertyCommand } from './core/history';
 export type { Command } from './core/history';
 export {
     registerSensorType, registerControllerType, registerActuatorType, registerShaderNodeType,
@@ -56,7 +56,7 @@ export { createDefaultEnvironment, createBoltevmTemplate } from './templates';
 
 // ─── Internal Imports for B3Engine ─────────────────────────────
 import { B3Object } from './core/B3Object';
-import { HistoryManager, MoveObjectCommand } from './core/history';
+import { HistoryManager, MoveObjectCommand, ScaleObjectCommand } from './core/history';
 import { registerShaderNodeType } from './core/registry';
 import { KeyboardSensor, CollisionSensor } from './logic/sensors';
 import { AndController, PythonController } from './logic/controllers';
@@ -197,33 +197,50 @@ export class B3Engine {
         // Transform Gizmo
         this.gizmo = new TransformControls(this.camera, this.renderer.domElement);
         this.gizmo.addEventListener('change', () => {
-            if (this.selectedObject && this.selectedObject.body) {
-                this.selectedObject.body.position.copy(this.selectedObject.object.position as any);
-                this.selectedObject.body.quaternion.copy(this.selectedObject.object.quaternion as any);
-                this.selectedObject.body.velocity.set(0, 0, 0);
-                this.selectedObject.body.angularVelocity.set(0, 0, 0);
+            if (this.selectedObject) {
+                if (this.selectedObject.body) {
+                    this.selectedObject.body.position.copy(this.selectedObject.object.position as any);
+                    this.selectedObject.body.quaternion.copy(this.selectedObject.object.quaternion as any);
+                    this.selectedObject.body.velocity.set(0, 0, 0);
+                    this.selectedObject.body.angularVelocity.set(0, 0, 0);
+                }
+                
+                if (this.gizmo.getMode() === 'scale') {
+                    (this.selectedObject as any)._physicsDirty = true;
+                }
             }
         });
 
         let startPos = new THREE.Vector3();
         let startRot = new THREE.Quaternion();
+        let startScale = new THREE.Vector3();
 
         this.gizmo.addEventListener('dragging-changed', (event) => {
             if (this.selectedObject) {
                 if (event.value) {
                     startPos.copy(this.selectedObject.object.position);
                     startRot.copy(this.selectedObject.object.quaternion);
+                    startScale.copy(this.selectedObject.object.scale);
                 } else {
                     const endPos = this.selectedObject.object.position.clone();
                     const endRot = this.selectedObject.object.quaternion.clone();
+                    const endScale = this.selectedObject.object.scale.clone();
                     
-                    if (!startPos.equals(endPos)) {
+                    if (!startPos.equals(endPos) || !startRot.equals(endRot)) {
                         this.history.execute(new MoveObjectCommand(
                             this.selectedObject,
                             startPos.clone(),
                             startRot.clone(),
                             endPos,
                             endRot
+                        ));
+                    }
+
+                    if (!startScale.equals(endScale)) {
+                        this.history.execute(new ScaleObjectCommand(
+                            this.selectedObject,
+                            startScale.clone(),
+                            endScale
                         ));
                     }
                 }
