@@ -387,3 +387,84 @@ export class DoorToggleNode extends LogicNode {
         return n;
     }
 }
+
+/**
+ * CutSceneNode: Records and plays back camera movements in the viewport.
+ */
+export class CutSceneNode extends LogicNode {
+    private keyframes: any[] = [];
+
+    constructor() {
+        super();
+        this.inputs = [
+            execIn(this.id, 'Play'),
+            execIn(this.id, 'Record'),
+            execIn(this.id, 'Stop'),
+            execIn(this.id, 'Clear')
+        ];
+        this.outputs = [
+            execOut(this.id, 'Finished'),
+            dataOut(this.id, 'IsRecording', 'boolean')
+        ];
+    }
+
+    getTypeName() { return 'CutSceneNode'; }
+
+    onExecute(pinId: string, ctx: ExecutionContext) {
+        if (pinId.includes('Record')) {
+            ctx.engine.startRecording();
+        } else if (pinId.includes('Stop')) {
+            if (ctx.engine.isRecording) {
+                this.keyframes = ctx.engine.stopRecording();
+            } else if (ctx.engine.isPlayingCutscene) {
+                ctx.engine.stopCutscene();
+            }
+        } else if (pinId.includes('Play')) {
+            ctx.engine.playCutscene(this.keyframes, () => {
+                // When finished, fire the output pin
+                this.state = 'TRIGGERED';
+                // Trigger next node in chain if possible
+                if (ctx.engine.graphExecutor) {
+                     const outPin = this.outputs.find(p => p.name === 'Finished');
+                     if (outPin) (ctx.engine.graphExecutor as any).followExecChain(outPin, ctx);
+                }
+            });
+        } else if (pinId.includes('Clear')) {
+            this.keyframes = [];
+        }
+        
+        this.setOutput('IsRecording', ctx.engine.isRecording);
+        this.state = 'TRIGGERED';
+    }
+
+    update(delta: number, b3obj: any, engine: any) {
+        this.setOutput('IsRecording', engine.isRecording);
+    }
+
+    static getNodeInfo(): NodeInfo {
+        return { 
+            type: 'CutSceneNode', 
+            label: 'Cut Scene', 
+            category: 'Action', 
+            color: '#e63946', 
+            description: 'Record and play camera movements', 
+            icon: '🎬' 
+        };
+    }
+
+    toJSON() { 
+        return { 
+            ...super.toJSON(), 
+            type: 'CutSceneNode',
+            keyframes: this.keyframes
+        }; 
+    }
+
+    static fromJSON(data: any): CutSceneNode {
+        const n = new CutSceneNode();
+        n.id = data.id; n.guiMetadata = data.guiMetadata; n.enabled = data.enabled;
+        n.restorePins(data);
+        n.keyframes = data.keyframes || [];
+        return n;
+    }
+}

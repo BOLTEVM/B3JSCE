@@ -28,7 +28,7 @@ export { BranchNode, SequenceNode, ForLoopNode, DelayNode, GateNode } from './no
 export { GetVariableNode, SetVariableNode, MathOpNode, CompareNode, BoolLogicNode, GetPropertyNode, SetPropertyNode } from './nodes/data';
 
 // V2 Action Nodes
-export { MoveToNode, RotateNode, PlaySoundNode, SpawnObjectNode, DestroyObjectNode, SendMessageNode, LogNode, SetMaterialNode, DoorToggleNode } from './nodes/actions';
+export { MoveToNode, RotateNode, PlaySoundNode, SpawnObjectNode, DestroyObjectNode, SendMessageNode, LogNode, SetMaterialNode, DoorToggleNode, CutSceneNode } from './nodes/actions';
 
 // V2 Skybox Nodes
 export { createProceduralSky, SetSkyColorNode, DayNightCycleNode, SetSunNode, WeatherNode, StarFieldNode } from './nodes/skybox';
@@ -69,7 +69,7 @@ registerActuatorType('Web3ConnectActuator', (d) => Web3ConnectActuator.fromJSON(
 import { OnStartNode, OnTickNode, OnKeyNode, OnCollisionNode, OnTimerNode, OnInteractNode } from './nodes/events';
 import { BranchNode, SequenceNode, ForLoopNode, DelayNode, GateNode } from './nodes/flow';
 import { GetVariableNode, SetVariableNode, MathOpNode, CompareNode, BoolLogicNode, GetPropertyNode, SetPropertyNode } from './nodes/data';
-import { MoveToNode, RotateNode, PlaySoundNode, SpawnObjectNode, DestroyObjectNode, SendMessageNode, LogNode, SetMaterialNode, DoorToggleNode } from './nodes/actions';
+import { MoveToNode, RotateNode, PlaySoundNode, SpawnObjectNode, DestroyObjectNode, SendMessageNode, LogNode, SetMaterialNode, DoorToggleNode, CutSceneNode } from './nodes/actions';
 import { SetSkyColorNode, DayNightCycleNode, SetSunNode, WeatherNode, StarFieldNode } from './nodes/skybox';
 
 // Events
@@ -107,6 +107,7 @@ registerActuatorType('SendMessageNode', (d) => SendMessageNode.fromJSON(d));
 registerActuatorType('LogNode', (d) => LogNode.fromJSON(d));
 registerActuatorType('SetMaterialNode', (d) => SetMaterialNode.fromJSON(d));
 registerActuatorType('DoorToggleNode', (d) => DoorToggleNode.fromJSON(d));
+registerActuatorType('CutSceneNode', (d) => CutSceneNode.fromJSON(d));
 
 // Skybox
 registerActuatorType('SetSkyColorNode', (d) => SetSkyColorNode.fromJSON(d));

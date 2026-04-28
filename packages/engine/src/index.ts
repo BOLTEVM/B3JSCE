@@ -140,9 +140,20 @@ export class B3Engine {
     private onSelectionChange: (obj: B3Object | null) => void = () => { };
     keysDown: Set<string> = new Set();
 
+    // ─── Cut-Scene & Recording State ───────────────────────────
+    isRecording: boolean = false;
+    recordedKeyframes: { pos: number[], rot: number[], fov: number, time: number }[] = [];
+    recordingStartTime: number = 0;
+    isPlayingCutscene: boolean = false;
+    playbackStartTime: number = 0;
+    playbackKeyframes: any[] = [];
+    private onCutsceneFinished: (() => void) | null = null;
+    private isPointerLocked: boolean = false;
+
     constructor(private container: HTMLElement) {
         this.scene = new THREE.Scene();
         this.camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+        this.camera.rotation.order = 'YXZ';
         this.camera.add(this.audio.getListener());
 
         this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -242,8 +253,23 @@ export class B3Engine {
         let dragThreshold = 5;
         let startX = 0;
         let startY = 0;
+        let lastX = 0;
+        let lastY = 0;
 
         container.addEventListener('mousedown', (e) => {
+            const isShift = this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight');
+            
+            // If Shift is held, prioritize cinematic camera rotation over gizmo/selection
+            if (isShift && e.button === 0) {
+                this.renderer.domElement.requestPointerLock();
+                isDraggingCam = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                lastX = e.clientX;
+                lastY = e.clientY;
+                return; // Early return to avoid gizmo raycast
+            }
+
             // Check if we hit the gizmo first
             const rect = this.container.getBoundingClientRect();
             this.mouse.x = ((e.clientX - rect.left) / this.container.clientWidth) * 2 - 1;
@@ -258,8 +284,10 @@ export class B3Engine {
 
             startX = e.clientX;
             startY = e.clientY;
+            lastX = e.clientX;
+            lastY = e.clientY;
             isDraggingCam = true;
-        });
+        }, true);
 
         window.addEventListener('mouseup', (e) => {
             const diffX = Math.abs(e.clientX - startX);
@@ -273,12 +301,32 @@ export class B3Engine {
         });
 
         window.addEventListener('mousemove', (e) => {
-            if (isDraggingCam) {
-                const sensitivity = 0.002;
-                this.camera.rotation.y -= e.movementX * sensitivity;
-                this.camera.rotation.x -= e.movementY * sensitivity;
-                this.camera.rotation.order = 'YXZ';
+            const sensitivity = 0.002;
+            const deltaX = e.movementX !== undefined ? e.movementX : (e.clientX - lastX);
+            const deltaY = e.movementY !== undefined ? e.movementY : (e.clientY - lastY);
+            lastX = e.clientX;
+            lastY = e.clientY;
+
+            if (document.pointerLockElement || isDraggingCam) {
+                // If Shift is down, rotate. If not, only rotate if we were dragging (legacy behavior)
+                const isShift = this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight');
+                
+                if (isShift || isDraggingCam) {
+                    this.camera.rotation.order = 'YXZ';
+                    this.camera.rotation.y -= deltaX * sensitivity;
+                    this.camera.rotation.x -= deltaY * sensitivity;
+                    
+                    // Clamp vertical rotation to avoid flipping (approx 85 degrees)
+                    this.camera.rotation.x = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, this.camera.rotation.x));
+                    
+                    // Force zero roll to prevent diagonal tilting
+                    this.camera.rotation.z = 0;
+                }
             }
+        });
+
+        document.addEventListener('pointerlockchange', () => {
+            this.isPointerLocked = !!document.pointerLockElement;
         });
 
         // Initialize Inline Blob Worker
@@ -617,6 +665,70 @@ self.onmessage = function(e) {
         this.css2dRenderer.setSize(this.container.clientWidth, this.container.clientHeight);
     }
 
+    // ─── Recording & Playback API ──────────────────────────────
+    startRecording() {
+        this.isRecording = true;
+        this.recordedKeyframes = [];
+        this.recordingStartTime = performance.now();
+        console.log("B3JS Engine: Recording Started");
+    }
+
+    stopRecording() {
+        this.isRecording = false;
+        console.log(`B3JS Engine: Recording Stopped. Captured ${this.recordedKeyframes.length} frames.`);
+        return [...this.recordedKeyframes];
+    }
+
+    playCutscene(keyframes: any[], onFinished?: () => void) {
+        if (keyframes.length === 0) return;
+        this.playbackKeyframes = keyframes;
+        this.playbackStartTime = performance.now();
+        this.isPlayingCutscene = true;
+        this.onCutsceneFinished = onFinished || null;
+        console.log("B3JS Engine: Cutscene Playback Started");
+    }
+
+    stopCutscene() {
+        this.isPlayingCutscene = false;
+        if (this.onCutsceneFinished) this.onCutsceneFinished();
+        this.onCutsceneFinished = null;
+    }
+
+    private applyCutsceneFrame(elapsed: number) {
+        const frames = this.playbackKeyframes;
+        if (elapsed > frames[frames.length - 1].time) {
+            this.stopCutscene();
+            return;
+        }
+
+        // Find surrounding frames
+        let i = 0;
+        while (i < frames.length - 2 && frames[i + 1].time < elapsed) i++;
+
+        const f1 = frames[i];
+        const f2 = frames[i + 1];
+        const t = (elapsed - f1.time) / (f2.time - f1.time);
+
+        // Interpolate position
+        this.camera.position.set(
+            f1.pos[0] + (f2.pos[0] - f1.pos[0]) * t,
+            f1.pos[1] + (f2.pos[1] - f1.pos[1]) * t,
+            f1.pos[2] + (f2.pos[2] - f1.pos[2]) * t
+        );
+
+        // Interpolate rotation (Euler)
+        this.camera.rotation.set(
+            f1.rot[0] + (f2.rot[0] - f1.rot[0]) * t,
+            f1.rot[1] + (f2.rot[1] - f1.rot[1]) * t,
+            f1.rot[2] + (f2.rot[2] - f1.rot[2]) * t,
+            'YXZ'
+        );
+
+        // Interpolate FOV
+        this.camera.fov = f1.fov + (f2.fov - f1.fov) * t;
+        this.camera.updateProjectionMatrix();
+    }
+
     start() {
         this.renderer.setAnimationLoop(() => this.animate());
     }
@@ -624,6 +736,19 @@ self.onmessage = function(e) {
     private animate() {
         this.timer.update();
         const delta = Math.min(this.timer.getDelta(), 0.1);
+
+        if (this.isPlayingCutscene) {
+            const elapsed = (performance.now() - this.playbackStartTime) / 1000;
+            this.applyCutsceneFrame(elapsed);
+        } else if (this.isRecording) {
+            const elapsed = (performance.now() - this.recordingStartTime) / 1000;
+            this.recordedKeyframes.push({
+                pos: this.camera.position.toArray(),
+                rot: this.camera.rotation.toArray() as number[],
+                fov: this.camera.fov,
+                time: elapsed
+            });
+        }
 
         // Editor Camera Navigation (Shift + WASD)
         if (this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight')) {
