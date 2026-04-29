@@ -286,6 +286,15 @@ export const Properties = ({
                     }}>Normalize Scale</button>
 
             <div class="prop-row" style="margin-top: 10px; border-top: 1px solid #444; padding-top: 10px;">
+                <div class="prop-label" style="font-size: 9px;">Visible</div>
+                <input type="checkbox" checked={selectedObject.visible} 
+                       onChange={(e: any) => {
+                           selectedObject.visible = e.target.checked;
+                           onRender();
+                       }} />
+            </div>
+
+            <div class="prop-row">
                 <div class="prop-label" style="font-size: 9px;">Static Object</div>
                 <input type="checkbox" checked={selectedObject.isStatic} 
                        onChange={(e: any) => {

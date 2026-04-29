@@ -10,8 +10,29 @@ export const Outliner = ({
         <div key={obj.id}>
             <div class={`tree-item ${selectedObjectId === obj.id ? 'selected' : ''}`}
                 onClick={() => onSelect(obj.id)}>
-                <span class="icon" style="width: 6px; height: 6px; border-radius: 50%; background: #666; display: inline-block;"></span>
-                <span style="flex: 1; margin-left: 8px;">{obj.name}</span>
+                
+                {/* Visibility Toggle (Eyeball) */}
+                <span class="visibility-toggle" 
+                    onClick={(e: MouseEvent) => {
+                        e.stopPropagation();
+                        obj.visible = !obj.visible;
+                        onSelect(selectedObjectId); // Trigger re-render
+                    }}
+                    style={`margin-right: 8px; cursor: pointer; opacity: ${obj.visible ? 1 : 0.3};`}>
+                    {obj.visible ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                            <circle cx="12" cy="12" r="3" />
+                        </svg>
+                    ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
+                            <line x1="1" y1="1" x2="23" y2="23" />
+                        </svg>
+                    )}
+                </span>
+
+                <span style="flex: 1;">{obj.name}</span>
                 <span class="delete-btn" style="opacity: 0.2;" onClick={(e: MouseEvent) => {
                     e.stopPropagation();
                     onDelete(obj.id, obj.name);

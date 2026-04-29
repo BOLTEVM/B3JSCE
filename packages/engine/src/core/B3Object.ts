@@ -145,6 +145,12 @@ export class B3Object {
     // Avatar & Visuals
     public avatarUrl: string = "";
     private visualGroup: THREE.Group = new THREE.Group();
+    private _visible: boolean = true;
+    get visible(): boolean { return this._visible; }
+    set visible(v: boolean) {
+        this._visible = v;
+        this.applyVisibility();
+    }
 
     // Skeleton & Animation
     mixer: THREE.AnimationMixer | null = null;
@@ -156,17 +162,38 @@ export class B3Object {
 
     constructor(public object: THREE.Object3D) {
         this.ecsEntityId = createEntity();
-        this.object.userData.b3obj = this;
-        this.targetPosition.copy(object.position);
-        this.targetQuaternion.copy(object.quaternion);
         
-        this.object.add(this.visualGroup);
+        // If we are given a mesh, wrap it in a group so we can control visual state independently
         if (this.object instanceof THREE.Mesh) {
-            const placeholder = new THREE.Mesh(this.object.geometry, this.object.material);
+            const originalMesh = this.object;
+            const group = new THREE.Group();
+            group.position.copy(originalMesh.position);
+            group.quaternion.copy(originalMesh.quaternion);
+            group.scale.copy(originalMesh.scale);
+            
+            originalMesh.position.set(0, 0, 0);
+            originalMesh.quaternion.set(0, 0, 0, 1);
+            originalMesh.scale.set(1, 1, 1);
+            
+            group.add(originalMesh);
+            this.object = group;
+            
+            // The visual group will also live in this root group
+            this.object.add(this.visualGroup);
+            
+            const placeholder = new THREE.Mesh(originalMesh.geometry, originalMesh.material);
             this.visualGroup.add(placeholder);
-            (this.object as any).visible = false; 
+            
+            // Hide the original mesh part (we use the placeholder/avatar instead)
+            originalMesh.visible = false;
+        } else {
+            this.object.add(this.visualGroup);
         }
 
+        this.object.userData.b3obj = this;
+        this.targetPosition.copy(this.object.position);
+        this.targetQuaternion.copy(this.object.quaternion);
+        
         if ((this.object as any).material) {
             this.standardMaterial = (this.object as any).material;
         } else {
@@ -506,6 +533,12 @@ export class B3Object {
     addController(c: Controller) { this.controllers.push(c); }
     addActuator(a: Actuator) { this.actuators.push(a); }
 
+    private applyVisibility() {
+        if (this.object) {
+            this.object.visible = this._visible;
+        }
+    }
+
     update(delta: number, engine: any) {
         if (!this.object) return;
         
@@ -534,6 +567,7 @@ export class B3Object {
             name: this.name,
             type: this.type,
             networkId: this.networkId,
+            visible: this.visible,
             syncTransform: this.syncTransform,
             isStatic: this.isStatic,
             isActor: this.isActor,
@@ -582,6 +616,7 @@ export class B3Object {
         obj.name = data.name;
         obj.type = data.type;
         obj.networkId = data.networkId || obj.networkId;
+        obj.visible = data.visible !== undefined ? data.visible : true;
         obj.syncTransform = data.syncTransform !== undefined ? data.syncTransform : true;
         obj.isStatic = data.isStatic || false;
         obj.isActor = data.isActor || false;
