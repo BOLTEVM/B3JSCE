@@ -7,7 +7,8 @@ import { AndController } from './logic/controllers';
 import { Web3ConnectActuator } from './logic/actuators';
 import { createProceduralSky } from './logic/nodes/skybox';
 import { processGlbPhysics } from './glbParser';
-import { createMarketTerminal, createShopKiosk, createWeb3Gateway, createCube } from './factories';
+import { createMarketTerminal, createShopKiosk, createWeb3Gateway, createCube, createTokenCoin, createPinPad } from './factories';
+import { HandGestureSensor } from './logic/spatial_nodes';
 
 /**
  * Scene template generators. Each accepts a B3Engine reference.
@@ -288,6 +289,44 @@ export async function createExchangeTemplate(engine: any, name = 'Deep Trading P
         shop.object.position.fromArray(pos);
         if (shop.body) shop.body.position.fromArray(pos);
     });
+
+    console.log(`B3JS Engine: ${name} Template Generated.`);
+}
+
+export function createSpatialWalletTemplate(engine: any, name = 'Spatial Wallet') {
+    console.log(`B3JS Engine: Generating ${name} Template...`);
+    
+    // 1. Futuristic Environment
+    createDefaultEnvironment(engine);
+    
+    // 2. Web3 Gateway (The "Server")
+    const gateway = createWeb3Gateway(engine, "Vault Gateway");
+    gateway.object.position.set(0, 0, -5);
+    if (gateway.body) gateway.body.position.set(0, 0, -5);
+    
+    // 3. Interactive Tokens (Semi-circle around player)
+    const tokens = [
+        { symbol: 'ETH', color: 0x6366f1, angle: -0.5 },
+        { symbol: 'BTC', color: 0xf59e0b, angle: 0 },
+        { symbol: 'SOL', color: 0x14f195, angle: 0.5 }
+    ];
+    
+    const radius = 3.5;
+    tokens.forEach(t => {
+        const coin = createTokenCoin(engine, t.symbol, t.color);
+        const x = Math.sin(t.angle) * radius;
+        const z = -Math.cos(t.angle) * radius;
+        coin.object.position.set(x, 1.4, z);
+        if (coin.body) coin.body.position.set(x, 1.4, z);
+        
+        // Add Hand Gesture Sensor to each coin
+        const gesture = new HandGestureSensor();
+        coin.addSensor(gesture);
+    });
+
+    // 4. Secure PIN Entry (Center, eye level)
+    const pinPad = createPinPad(engine);
+    pinPad.object.position.set(0, 1.2, -2.5);
 
     console.log(`B3JS Engine: ${name} Template Generated.`);
 }

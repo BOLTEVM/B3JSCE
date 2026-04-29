@@ -5,7 +5,9 @@
     "@b3js/engine": "*",
     "@b3js/ui": "*",
     "@b3js/web3": "*",
-    "webjsx": "^0.0.73"
+    "webjsx": "^0.0.73",
+    "ethers": "^6.13.0",
+    "nanoid": "^5.0.0"
   },
   "scripts": {
     "dev": "vite",

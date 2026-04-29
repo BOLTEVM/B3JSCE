@@ -53,9 +53,10 @@ export {
     createCube, createSphere, createLight, createNPC,
     createWeaponUnit, createVehicleBase, createSpatialAudio,
     createAmmoPickup, createHealthPickup, createAdvancedActor, createUnitreeBot,
-    createMarketTerminal, createShopKiosk, createWeb3Gateway, createArmoryRack
+    createMarketTerminal, createShopKiosk, createWeb3Gateway, createArmoryRack,
+    createTokenCoin, createPinPad
 } from './factories';
-export { createDefaultEnvironment, createBoltevmTemplate, createExchangeTemplate } from './templates';
+export { createDefaultEnvironment, createBoltevmTemplate, createExchangeTemplate, createSpatialWalletTemplate } from './templates';
 
 // ─── Internal Imports for B3Engine ─────────────────────────────
 import { B3Object } from './core/B3Object';
@@ -65,6 +66,8 @@ import { KeyboardSensor, CollisionSensor } from './logic/sensors';
 import { AndController, PythonController } from './logic/controllers';
 import { MotionActuator, InventoryActuator, MiningActuator, SpawnActuator } from './logic/actuators';
 import { OrderbookActuator, ContractActuator, EventSensor, ShopActuator, ArmoryActuator } from './logic/economics_nodes';
+import { HandGestureSensor, BalanceDisplayActuator } from './logic/spatial_nodes';
+import { WalletActuator, PinPadActuator } from './logic/wallet_nodes';
 import { Sensor, Controller, Actuator } from './logic/base';
 import {
     ShaderNode, ShaderMaterialGenerator, OutputNode, UniformManager,
@@ -95,7 +98,11 @@ registerActuatorType('OrderbookActuator', (d) => OrderbookActuator.fromJSON(d));
 registerActuatorType('ContractActuator', (d) => ContractActuator.fromJSON(d));
 registerActuatorType('ShopActuator', (d) => ShopActuator.fromJSON(d));
 registerActuatorType('ArmoryActuator', (d) => ArmoryActuator.fromJSON(d));
+registerActuatorType('BalanceDisplayActuator', (d) => BalanceDisplayActuator.fromJSON(d));
+registerActuatorType('WalletActuator', (d) => WalletActuator.fromJSON(d));
+registerActuatorType('PinPadActuator', (d) => PinPadActuator.fromJSON(d));
 registerSensorType('EventSensor', (d) => EventSensor.fromJSON(d));
+registerSensorType('HandGestureSensor', (d) => HandGestureSensor.fromJSON(d));
 
 /**
  * Main Engine Orchestrator

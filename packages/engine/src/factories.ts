@@ -7,6 +7,8 @@ import { MotionActuator, InventoryActuator } from './logic/actuators';
 import { CollisionSensor } from './logic/sensors';
 import { SightSensor, BoneLookAtActuator } from './ai_nodes';
 import { OrderbookActuator, ContractActuator, EventSensor, ShopActuator, ArmoryActuator } from './logic/economics_nodes';
+import { BalanceDisplayActuator } from './logic/spatial_nodes';
+import { PinPadActuator } from './logic/wallet_nodes';
 import { SpawnActuator } from './logic/actuators';
 
 /**
@@ -300,4 +302,50 @@ export function createArmoryRack(engine: any, name = "Armory Rack") {
     rack.addActuator(armory);
     
     return rack;
+}
+
+export function createTokenCoin(engine: any, symbol = "ETH", color = 0x6366f1) {
+    const coin = createCube(engine, symbol);
+    (coin.object as THREE.Mesh).geometry = new THREE.CylinderGeometry(0.3, 0.3, 0.08, 32);
+    (coin.object as THREE.Mesh).material = new THREE.MeshStandardMaterial({ 
+        color, 
+        metalness: 0.9, 
+        roughness: 0.1 
+    });
+    coin.object.rotation.x = Math.PI / 2;
+    coin.type = "Web3Asset";
+
+    const display = new BalanceDisplayActuator();
+    display.inputs[2].value = symbol;
+    coin.addActuator(display);
+
+    return coin;
+}
+
+export function createPinPad(engine: any, name = "Secure PIN Entry") {
+    const group = createCube(engine, name);
+    group.object.visible = false; // Container is invisible
+    group.type = "SecurityUnit";
+
+    const padActuator = new PinPadActuator();
+    group.addActuator(padActuator);
+
+    // Create 0-9 buttons
+    for (let i = 0; i < 10; i++) {
+        const btn = createCube(engine, `Btn_${i}`);
+        (btn.object as THREE.Mesh).material = new THREE.MeshStandardMaterial({ color: 0x10b981 });
+        btn.object.scale.set(0.4, 0.4, 0.1);
+        
+        // Grid Layout
+        const row = Math.floor(i / 3);
+        const col = i % 3;
+        btn.object.position.set(col * 0.5 - 0.5, -row * 0.5 + 0.5, 0);
+        
+        // Logic: When clicked, trigger DigitPressed on the padActuator
+        // (This would be pre-wired in the template or via a custom controller)
+        // For now, we just add the objects as children
+        group.object.add(btn.object);
+    }
+
+    return group;
 }

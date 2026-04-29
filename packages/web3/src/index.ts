@@ -1,8 +1,8 @@
 import { ContractRegistry } from './ContractRegistry';
 import { AssetRegistry } from './AssetRegistry';
+import { VaultManager } from './VaultManager';
 
-export * from './ContractRegistry';
-export * from './AssetRegistry';
+export { ContractRegistry, AssetRegistry, VaultManager };
 
 /**
  * B3JS Web3 Core
@@ -10,6 +10,7 @@ export * from './AssetRegistry';
 export class B3Web3 {
     public static contracts = new ContractRegistry();
     public static assets = new AssetRegistry();
+    public static vault = new VaultManager();
 
     static async connect() {
         console.log("B3JS: Connecting to Web3...");
