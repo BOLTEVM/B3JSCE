@@ -233,12 +233,14 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
             }
             obj.object.position.copy(finalPos);
             if (m.rot) {
-                obj.object.rotation.fromArray(m.rot);
+                const r = m.rot as [number, number, number];
+                obj.object.rotation.fromArray(r);
             }
             if (obj.body) {
                 obj.body.position.copy(finalPos as any);
                 if (m.rot) {
-                    obj.body.quaternion.setFromEuler(m.rot[0], m.rot[1], m.rot[2]);
+                    const r = m.rot as [number, number, number];
+                    obj.body.quaternion.setFromEuler(r[0], r[1], r[2]);
                 }
             }
             engine.addObject(obj);
