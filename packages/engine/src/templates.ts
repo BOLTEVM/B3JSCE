@@ -178,7 +178,7 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
         console.log(`B3JS: Bolt Base loaded with migrated Hyperfy logic.`);
     } catch (e) { console.warn('B3JS: Bolt Base not found, skipping.', e); }
 
-    const hyperfyModels: Array<{name: string, url: string, pos?: number[], rot?: number[], scale?: number, snap?: string}> = [
+    const hyperfyModels: Array<{name: string, url: string, pos?: number[], rot?: number[], scale?: number, snap?: string, physics?: boolean}> = [
         { name: 'Bolt Elevator', url: '/models/bolt-elevator-t.glb', pos: [-27.9294, -0.14015, -1.5394], scale: 1 },
         { name: 'Bolt Engine', url: '/models/bolt-engine.glb', pos: [0,0,0], scale: 1 },
         { name: 'Bolt Speakers', url: '/models/bolt-speakers-t.glb', snap: 'speaker_mount', pos: [0,0,0], scale: 1 },
@@ -186,7 +186,7 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
         { name: 'Bolt Lights', url: '/models/bolt-lights-t2.glb', pos: [0, 0, 0], scale: 1 },
         { name: 'Bolt Gate', url: '/models/bolt-gate.glb', pos: [-10.1553, 0.42426, 14.9469], rot: [0, Math.PI / 2, 0], scale: 1 },
         { name: 'Bolt Panel', url: '/models/bolt-panel.glb', pos: [16.1925, 0.36133, 13.4938], scale: 1 },
-        { name: 'Bolt Tablet', url: '/models/bolt-tablet.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'Bolt Tablet', url: '/models/bolt-tablet.glb', pos: [0, 0, 0], scale: 1, physics: false },
         { name: 'gORB', url: '/models/gORB.glb', pos: [0, 150, 0], scale: 1 },
         { name: 'Metakey', url: '/models/metakey.glb', pos: [-17.7667, 1.91591, 9.52224], scale: 1 },
     ];
@@ -207,8 +207,11 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
             obj.isStatic = true;
             obj.modelUrl = m.url;
             
-            if (physics.bodies.length > 0) {
+            if (physics.bodies.length > 0 && m.physics !== false) {
                 obj.body = physics.bodies[0].body;
+            } else if (physics.bodies.length > 0 && m.physics === false) {
+                // If physics is explicitly disabled, remove the generated bodies from the physics world
+                physics.bodies.forEach(b => engine.world.removeBody(b.body));
             }
             
             // Positioning: Try snappoint first, then fallback to pos
