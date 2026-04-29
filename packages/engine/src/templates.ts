@@ -52,6 +52,13 @@ export function createDefaultEnvironment(engine: any) {
 }
 
 export async function createBoltevmTemplate(engine: any, name = 'Boltevm World') {
+    const isObjectInScene = (name: string) => engine.objects.some((o: any) => o.name === name);
+    
+    if (isObjectInScene('Bolt Base')) {
+        console.log(`B3JS Engine: ${name} Template already present, skipping core import.`);
+        return;
+    }
+
     console.log(`B3JS Engine: Generating ${name} Template...`);
 
     // 1. Ground Plane
@@ -171,14 +178,21 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
         console.log(`B3JS: Bolt Base loaded with migrated Hyperfy logic.`);
     } catch (e) { console.warn('B3JS: Bolt Base not found, skipping.', e); }
 
-    const hyperfyModels: Array<{name: string, url: string, pos?: number[], scale?: number, snap?: string}> = [
+    const hyperfyModels: Array<{name: string, url: string, pos?: number[], rot?: number[], scale?: number, snap?: string}> = [
         { name: 'Bolt Elevator', url: '/models/bolt-elevator-t.glb', pos: [-27.9294, -0.14015, -1.5394], scale: 1 },
         { name: 'Bolt Engine', url: '/models/bolt-engine.glb', pos: [0,0,0], scale: 1 },
         { name: 'Bolt Speakers', url: '/models/bolt-speakers-t.glb', snap: 'speaker_mount', pos: [0,0,0], scale: 1 },
         { name: 'Bolt Tunnel', url: '/models/bolt-tunnel.glb', pos: [0,0,0], scale: 1 },
+        { name: 'Bolt Lights', url: '/models/bolt-lights-t2.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'Bolt Gate', url: '/models/bolt-gate.glb', pos: [-10.1553, 0.42426, 14.9469], rot: [0, Math.PI / 2, 0], scale: 1 },
+        { name: 'Bolt Panel', url: '/models/bolt-panel.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'Bolt Tablet', url: '/models/bolt-tablet.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'gORB', url: '/models/gORB.glb', pos: [0, 150, 0], scale: 1 },
+        { name: 'Metakey', url: '/models/metakey.glb', pos: [-17.7667, 1.91591, 9.52224], scale: 1 },
     ];
 
     for (const m of hyperfyModels) {
+        if (isObjectInScene(m.name)) continue;
         try {
             const gltf = await loader.loadAsync(m.url);
             const physics = processGlbPhysics(gltf, engine.world);
@@ -218,8 +232,14 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
                 }
             }
             obj.object.position.copy(finalPos);
+            if (m.rot) {
+                obj.object.rotation.fromArray(m.rot);
+            }
             if (obj.body) {
                 obj.body.position.copy(finalPos as any);
+                if (m.rot) {
+                    obj.body.quaternion.setFromEuler(m.rot[0], m.rot[1], m.rot[2]);
+                }
             }
             engine.addObject(obj);
             console.log(`B3JS: ${m.name} loaded (${physics.bodies.length} bodies, ${physics.colliderMeshes.length} colliders)`);
