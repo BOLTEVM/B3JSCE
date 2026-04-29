@@ -61,7 +61,7 @@ export class WalletActuator extends Actuator {
         if (out) ctx.executor.executePin(out.id, ctx);
     }
 
-    update() {}
+    update(delta: number, b3obj: any, engine: any) {}
     execute() {}
 
     toJSON() { return { ...super.toJSON(), type: 'WalletActuator' }; }
@@ -164,7 +164,7 @@ export class PinPadActuator extends Actuator {
         if (out) ctx.executor.executePin(out.id, ctx);
     }
 
-    update() {}
+    update(delta: number, b3obj: any, engine: any) {}
     execute() {}
 
     toJSON() { return { ...super.toJSON(), type: 'PinPadActuator', buffer: this.buffer }; }

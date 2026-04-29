@@ -9,6 +9,7 @@ export type { LogicState, B3ObjectRef, B3EngineRef } from './base';
 export { KeyboardSensor, CollisionSensor, MiningSensor } from './sensors';
 export { AndController, PythonController } from './controllers';
 export { MotionActuator, MiningActuator, Web3ConnectActuator, InventoryActuator } from './actuators';
+export { AudioReactiveActuator, SpinnerActuator, VideoPlayerActuator } from './bolt_nodes';
 
 // V2 Pin System
 export { canConnect, PIN_COLORS } from './pins';
@@ -47,6 +48,7 @@ import { registerSensorType, registerControllerType, registerActuatorType } from
 import { KeyboardSensor, CollisionSensor, MiningSensor } from './sensors';
 import { AndController, PythonController } from './controllers';
 import { MotionActuator, MiningActuator, InventoryActuator, Web3ConnectActuator } from './actuators';
+import { AudioReactiveActuator, SpinnerActuator, VideoPlayerActuator } from './bolt_nodes';
 import { CSharpController } from './csharp';
 
 // V1 Sensors
@@ -64,6 +66,9 @@ registerActuatorType('MotionActuator', (d, ctx) => MotionActuator.fromJSON(d, ct
 registerActuatorType('MiningActuator', (d) => MiningActuator.fromJSON(d, () => {}));
 registerActuatorType('InventoryActuator', (d) => InventoryActuator.fromJSON(d));
 registerActuatorType('Web3ConnectActuator', (d) => Web3ConnectActuator.fromJSON(d));
+registerActuatorType('AudioReactiveActuator', (d) => AudioReactiveActuator.fromJSON(d));
+registerActuatorType('SpinnerActuator', (d) => SpinnerActuator.fromJSON(d));
+registerActuatorType('VideoPlayerActuator', (d) => VideoPlayerActuator.fromJSON(d));
 
 // ─── Register V2 Graph Node Types ──────────────────────────────
 import { OnStartNode, OnTickNode, OnKeyNode, OnCollisionNode, OnTimerNode, OnInteractNode } from './nodes/events';

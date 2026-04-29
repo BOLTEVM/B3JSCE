@@ -44,13 +44,60 @@ export class AudioManager {
         }
     }
 
-    public setupAnalyser(source: THREE.Audio<AudioNode>) {
-        this.analyser = new THREE.AudioAnalyser(source, this.config.fftSize);
+    private analysers: Map<string, THREE.AudioAnalyser> = new Map();
+
+    public setupAnalyser(source: THREE.Audio<AudioNode>, id: string = 'default') {
+        const analyser = new THREE.AudioAnalyser(source, this.config.fftSize);
+        this.analysers.set(id, analyser);
     }
 
-    public getFrequencyData(): Uint8Array {
-        if (!this.analyser) return new Uint8Array(this.config.fftSize / 2);
-        return this.analyser.getFrequencyData();
+    public getFrequencyData(id: string = 'default'): Uint8Array {
+        const analyser = this.analysers.get(id);
+        if (!analyser) return new Uint8Array(this.config.fftSize / 2);
+        return analyser.getFrequencyData();
+    }
+
+    public getAverageFrequency(id: string = 'default'): number {
+        const analyser = this.analysers.get(id);
+        return analyser ? analyser.getAverageFrequency() : 0;
+    }
+
+    /**
+     * Extracts frequency intensity for specific bands.
+     * Bass: 0-250Hz, Mid: 250-2000Hz, Treble: 2000Hz+
+     */
+    public getBandIntensity(band: 'volume' | 'bass' | 'mid' | 'treble', id: string = 'default'): number {
+        const analyser = this.analysers.get(id);
+        if (!analyser) return 0;
+
+        const data = analyser.getFrequencyData();
+        const binCount = data.length;
+        
+        // FFT bin to frequency mapping: freq = binIndex * (sampleRate / fftSize)
+        // Assuming 44100Hz sample rate and 2048 FFT size: 1 bin ~= 21.5Hz
+        
+        if (band === 'volume') return analyser.getAverageFrequency() / 255;
+
+        let start = 0;
+        let end = 0;
+
+        if (band === 'bass') {
+            start = 0;
+            end = Math.floor(250 / 21.5);
+        } else if (band === 'mid') {
+            start = Math.floor(250 / 21.5);
+            end = Math.floor(2000 / 21.5);
+        } else if (band === 'treble') {
+            start = Math.floor(2000 / 21.5);
+            end = binCount;
+        }
+
+        let sum = 0;
+        for (let i = start; i < end; i++) {
+            sum += data[i];
+        }
+        
+        return (sum / (end - start)) / 255;
     }
 
     public setStereo(enabled: boolean) {

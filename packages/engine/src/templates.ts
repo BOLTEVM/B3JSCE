@@ -9,6 +9,8 @@ import { createProceduralSky } from './logic/nodes/skybox';
 import { processGlbPhysics } from './glbParser';
 import { createMarketTerminal, createShopKiosk, createWeb3Gateway, createCube, createTokenCoin, createPinPad } from './factories';
 import { HandGestureSensor } from './logic/spatial_nodes';
+import { ElevatorActuator, GateActuator, PulseActuator } from './logic/elevator_nodes';
+import { SpinnerActuator, AudioReactiveActuator, VideoPlayerActuator } from './logic/bolt_nodes';
 
 /**
  * Scene template generators. Each accepts a B3Engine reference.
@@ -100,8 +102,72 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
         if (physics.bodies.length > 0) {
             baseObj.body = physics.bodies[0].body;
         }
+
+        // ─── Bolt Base Logic Integration (Hyperfy Migration) ───
+        
+        // 1. Audio Setup
+        const audioUrl = 'https://arweave.net/uS5A6W8j-H6oZ0_uG-f_R66X0_N6_p0_W6_O6_L6_M6'; // Sample or prop-driven
+        const b3audio = new THREE.PositionalAudio(engine.audio.getListener());
+        const audioLoader = new THREE.AudioLoader();
+        audioLoader.load(audioUrl, (buffer) => {
+            b3audio.setBuffer(buffer);
+            b3audio.setRefDistance(20);
+            b3audio.setLoop(true);
+            b3audio.play();
+            engine.audio.setupAnalyser(b3audio, 'bolt_base');
+        });
+        gltf.scene.add(b3audio);
+
+        // 2. Continuous Rotations (Spinners)
+        const addSpinner = (name: string, sx: number, sy: number, sz: number) => {
+            const spin = new SpinnerActuator();
+            spin.inputs[1].value = sx;
+            spin.inputs[2].value = sy;
+            spin.inputs[3].value = sz;
+            spin.inputs[4].value = name;
+            baseObj?.addActuator(spin);
+        };
+
+        addSpinner('LowerTruss', 0, 0.5, 0);
+        addSpinner('UpperTruss', 0, -0.3, 0);
+        addSpinner('tunnel', 0, 0.2, 0);
+        addSpinner('CoolingFan', -2.0, 0, 0); // Targets all CoolingFan* meshes
+        addSpinner('w', 0, 1.0, 0); // Wheel
+        addSpinner('r1', 0.5, 0, 0);
+        addSpinner('r2', 0, 0.5, 0);
+        addSpinner('r3', 0, 0, 0.5);
+        addSpinner('rootLights', 0, 0.5, 0);
+
+        // 3. Audio Reactivity
+        const addReactivity = (name: string, band: string, scale: number, intensity: number, color: string) => {
+            const react = new AudioReactiveActuator();
+            react.inputs[1].value = 'bolt_base';
+            react.inputs[2].value = band;
+            react.inputs[3].value = scale;
+            react.inputs[4].value = intensity;
+            react.inputs[5].value = color;
+            react.inputs[6].value = name;
+            baseObj?.addActuator(react);
+        };
+
+        addReactivity('Thrusters', 'bass', 8, 2, '#ff4400');
+        addReactivity('engineInner', 'mid', 5, 1.5, '#00aaff');
+        addReactivity('engineOuter', 'volume', 3, 1, '#ffffff');
+        addReactivity('tunnelPiece', 'bass', 6, 1.5, '#aa00ff');
+        addReactivity('TableMesh', 'mid', 4, 1.2, '#ff00ff');
+        addReactivity('FanMesh', 'treble', 5, 1, '#00ff00');
+        addReactivity('r1_2', 'volume', 3, 1.5, '#ff00ff');
+        addReactivity('r2_2', 'bass', 3, 1.5, '#00ffff');
+        addReactivity('r3_3', 'treble', 3, 1.5, '#ff6600');
+
+        // 4. Video Player
+        const video = new VideoPlayerActuator();
+        video.inputs[1].value = 'https://arweave.net/finalbossfinal.mp4';
+        video.inputs[3].value = 'Screens';
+        baseObj.addActuator(video);
+
         engine.addObject(baseObj);
-        console.log(`B3JS: Bolt Base loaded (${physics.bodies.length} bodies, ${physics.colliderMeshes.length} colliders)`);
+        console.log(`B3JS: Bolt Base loaded with migrated Hyperfy logic.`);
     } catch (e) { console.warn('B3JS: Bolt Base not found, skipping.', e); }
 
     const hyperfyModels: Array<{name: string, url: string, pos?: number[], scale?: number, snap?: string}> = [
@@ -156,6 +222,34 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
             }
             engine.addObject(obj);
             console.log(`B3JS: ${m.name} loaded (${physics.bodies.length} bodies, ${physics.colliderMeshes.length} colliders)`);
+
+            // Wire up Elevator Logic if this is the elevator model
+            if (m.name === 'Bolt Elevator') {
+                const elevator = obj;
+                const elevatorAct = new ElevatorActuator();
+                elevatorAct.inputs[1].value = -0.14015; // Floor 1 Y
+                elevatorAct.inputs[2].value = 10.0;     // Floor 2 Y (Estimated)
+                elevator.addActuator(elevatorAct);
+
+                // Add Pulse effect to the carriage light strip
+                const pulse = new PulseActuator();
+                pulse.inputs[0].value = '#00aaff';
+                pulse.inputs[3].value = 'BoltElevator_7'; // Target the specific light mesh
+                pulse.inputs[4].value = 0.9; // Metalness
+                pulse.inputs[5].value = 0.1; // Roughness
+                elevator.addActuator(pulse);
+
+                // Add a local light near the elevator to make it pop
+                const light = engine.createLight('Elevator Light');
+                light.object.position.set(-25, 5, -1.5);
+                if (light.object instanceof THREE.PointLight) {
+                    light.object.intensity = 50;
+                    light.object.distance = 15;
+                }
+
+                // Find sub-meshes for gates (This is a simplified wire-up)
+                // In a real scenario, we'd traverse the scene and find 'LowerGateRig', etc.
+            }
         } catch (e) { console.warn(`B3JS: ${m.name} (${m.url}) failed to load.`, e); }
     }
 
@@ -274,7 +368,7 @@ export async function createExchangeTemplate(engine: any, name = 'Deep Trading P
     corners.forEach((pos, i) => {
         const shop = createShopKiosk(engine, `Merchant ${i + 1}`);
         shop.object.position.fromArray(pos);
-        if (shop.body) shop.body.position.fromArray(pos);
+        if (shop.body) shop.body.position.set(pos[0], pos[1], pos[2]);
     });
 
     console.log(`B3JS Engine: ${name} Template Generated.`);

@@ -68,6 +68,7 @@ import { MotionActuator, InventoryActuator, MiningActuator, SpawnActuator } from
 import { OrderbookActuator, ContractActuator, EventSensor, ShopActuator, ArmoryActuator } from './logic/economics_nodes';
 import { HandGestureSensor, BalanceDisplayActuator } from './logic/spatial_nodes';
 import { WalletActuator, PinPadActuator } from './logic/wallet_nodes';
+import { ElevatorActuator, GateActuator, PulseActuator } from './logic/elevator_nodes';
 import { Sensor, Controller, Actuator } from './logic/base';
 import {
     ShaderNode, ShaderMaterialGenerator, OutputNode, UniformManager,
@@ -101,6 +102,9 @@ registerActuatorType('ArmoryActuator', (d) => ArmoryActuator.fromJSON(d));
 registerActuatorType('BalanceDisplayActuator', (d) => BalanceDisplayActuator.fromJSON(d));
 registerActuatorType('WalletActuator', (d) => WalletActuator.fromJSON(d));
 registerActuatorType('PinPadActuator', (d) => PinPadActuator.fromJSON(d));
+registerActuatorType('ElevatorActuator', (d) => ElevatorActuator.fromJSON(d));
+registerActuatorType('GateActuator', (d) => GateActuator.fromJSON(d));
+registerActuatorType('PulseActuator', (d) => PulseActuator.fromJSON(d));
 registerSensorType('EventSensor', (d) => EventSensor.fromJSON(d));
 registerSensorType('HandGestureSensor', (d) => HandGestureSensor.fromJSON(d));
 
