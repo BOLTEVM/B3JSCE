@@ -7,6 +7,7 @@ import { AndController } from './logic/controllers';
 import { Web3ConnectActuator } from './logic/actuators';
 import { createProceduralSky } from './logic/nodes/skybox';
 import { processGlbPhysics } from './glbParser';
+import { createMarketTerminal, createShopKiosk, createWeb3Gateway, createCube } from './factories';
 
 /**
  * Scene template generators. Each accepts a B3Engine reference.
@@ -234,4 +235,59 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
     spawn.metadata.teamId = 0; // All teams/wildcard
 
     console.log(`B3JS Engine: ${name} Template Generated Successfully.`);
+}
+
+export async function createExchangeTemplate(engine: any, name = 'Deep Trading Pit') {
+    console.log(`B3JS Engine: Generating ${name} Template...`);
+    
+    // 1. Futuristic Environment
+    engine.resetScene();
+    const floorGeo = new THREE.PlaneGeometry(60, 60);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x050505, roughness: 0.1, metalness: 0.9 });
+    const floorMesh = new THREE.Mesh(floorGeo, floorMat);
+    floorMesh.rotation.x = -Math.PI / 2;
+    const floor = new B3Object(floorMesh);
+    floor.name = 'Trading Floor';
+    floor.isStatic = true;
+    floor.body = new CANNON.Body({ mass: 0, shape: new CANNON.Plane() });
+    floor.body.quaternion.setFromEuler(-Math.PI / 2, 0, 0);
+    engine.addObject(floor);
+
+    // 2. Cyber-lighting
+    const amb = new THREE.AmbientLight(0x4444ff, 0.2);
+    engine.scene.add(amb);
+    const topLight = new THREE.RectAreaLight(0x00cc66, 20, 10, 10);
+    topLight.position.set(0, 10, 0);
+    topLight.lookAt(0, 0, 0);
+    engine.scene.add(topLight);
+
+    // 3. Central Web3 Gateway
+    const gateway = createWeb3Gateway(engine, "Ethereum Gateway");
+    gateway.object.position.set(0, 0.05, 0);
+    if (gateway.body) gateway.body.position.set(0, 0.05, 0);
+
+    // 4. Circular Trading Terminals
+    for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2;
+        const x = Math.cos(angle) * 8;
+        const z = Math.sin(angle) * 8;
+        
+        const terminal = createMarketTerminal(engine, `Market Terminal ${i + 1}`);
+        terminal.object.position.set(x, 0.9, z);
+        terminal.object.lookAt(0, 0.9, 0);
+        if (terminal.body) {
+            terminal.body.position.set(x, 0.9, z);
+            terminal.body.quaternion.copy(terminal.object.quaternion as any);
+        }
+    }
+
+    // 5. Merchant Kiosks in the corners
+    const corners = [[15, 0, 15], [-15, 0, 15], [15, 0, -15], [-15, 0, -15]];
+    corners.forEach((pos, i) => {
+        const shop = createShopKiosk(engine, `Merchant ${i + 1}`);
+        shop.object.position.fromArray(pos);
+        if (shop.body) shop.body.position.fromArray(pos);
+    });
+
+    console.log(`B3JS Engine: ${name} Template Generated.`);
 }

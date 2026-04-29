@@ -6,6 +6,8 @@ import { AndController } from './logic/controllers';
 import { MotionActuator, InventoryActuator } from './logic/actuators';
 import { CollisionSensor } from './logic/sensors';
 import { SightSensor, BoneLookAtActuator } from './ai_nodes';
+import { OrderbookActuator, ContractActuator, EventSensor, ShopActuator, ArmoryActuator } from './logic/economics_nodes';
+import { SpawnActuator } from './logic/actuators';
 
 /**
  * Object factory functions. Each accepts a B3Engine reference and returns a configured B3Object.
@@ -236,4 +238,66 @@ export function createSpawnPoint(engine: any, name = "Spawn Point") {
     
     engine.addObject(b3obj);
     return b3obj;
+}
+
+export function createMarketTerminal(engine: any, name = "Exchange Terminal") {
+    const terminal = createCube(engine, name);
+    (terminal.object as THREE.Mesh).material = new THREE.MeshStandardMaterial({ 
+        color: 0x00cc66,
+        emissive: 0x004411
+    });
+    (terminal.object as THREE.Mesh).scale.set(1.2, 1.8, 0.15);
+    terminal.type = "EconomicUnit";
+    
+    const obActuator = new OrderbookActuator();
+    terminal.addActuator(obActuator);
+    
+    return terminal;
+}
+
+export function createShopKiosk(engine: any, name = "Merchant Kiosk") {
+    const kiosk = createCube(engine, name);
+    (kiosk.object as THREE.Mesh).material = new THREE.MeshStandardMaterial({ color: 0xccaa00 });
+    (kiosk.object as THREE.Mesh).scale.set(1.5, 1.2, 1.5);
+    kiosk.type = "EconomicUnit";
+    
+    const shop = new ShopActuator();
+    kiosk.addActuator(shop);
+    
+    return kiosk;
+}
+
+export function createWeb3Gateway(engine: any, name = "Web3 Gateway") {
+    const gateway = createCube(engine, name);
+    (gateway.object as THREE.Mesh).material = new THREE.MeshStandardMaterial({ 
+        color: 0x6366f1,
+        transparent: true,
+        opacity: 0.8
+    });
+    (gateway.object as THREE.Mesh).scale.set(2, 0.1, 2);
+    gateway.type = "Web3Unit";
+    
+    const eventSensor = new EventSensor();
+    const spawnActuator = new SpawnActuator();
+    
+    gateway.sensors.push(eventSensor);
+    gateway.actuators.push(spawnActuator);
+    
+    return gateway;
+}
+
+export function createArmoryRack(engine: any, name = "Armory Rack") {
+    const rack = createCube(engine, name);
+    (rack.object as THREE.Mesh).material = new THREE.MeshStandardMaterial({ 
+        color: 0x334155,
+        metalness: 0.9,
+        roughness: 0.1
+    });
+    (rack.object as THREE.Mesh).scale.set(2, 2.5, 0.4);
+    rack.type = "EconomicUnit";
+    
+    const armory = new ArmoryActuator();
+    rack.addActuator(armory);
+    
+    return rack;
 }

@@ -1,6 +1,7 @@
 import { nanoid } from 'nanoid';
 import { IPin, pinToJSON, pinFromJSON } from './pins';
 import type { ExecutionContext, IGraphNode, NodeInfo } from './graph';
+export type { NodeInfo };
 
 // Forward-declare types to avoid circular imports at module level.
 // Concrete runtime references are passed as parameters, never imported.

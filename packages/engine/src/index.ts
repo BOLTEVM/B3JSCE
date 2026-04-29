@@ -21,6 +21,8 @@ import { RoboticsManager } from './robotics/RoboticsManager';
 import { UnitreeManager } from './robotics/UnitreeManager';
 import { DigitalTwinSystem } from './robotics/DigitalTwinSystem';
 import { MiningManager } from './mining';
+import { EconomyManager } from './economics';
+import { B3Web3 } from '@b3js/web3';
 import { processGlbPhysics } from './glbParser';
 
 // ─── Core Module Re-exports ────────────────────────────────────
@@ -50,9 +52,10 @@ export * from './ai_nodes';
 export {
     createCube, createSphere, createLight, createNPC,
     createWeaponUnit, createVehicleBase, createSpatialAudio,
-    createAmmoPickup, createHealthPickup, createAdvancedActor, createUnitreeBot
+    createAmmoPickup, createHealthPickup, createAdvancedActor, createUnitreeBot,
+    createMarketTerminal, createShopKiosk, createWeb3Gateway, createArmoryRack
 } from './factories';
-export { createDefaultEnvironment, createBoltevmTemplate } from './templates';
+export { createDefaultEnvironment, createBoltevmTemplate, createExchangeTemplate } from './templates';
 
 // ─── Internal Imports for B3Engine ─────────────────────────────
 import { B3Object } from './core/B3Object';
@@ -61,6 +64,7 @@ import { registerShaderNodeType } from './core/registry';
 import { KeyboardSensor, CollisionSensor } from './logic/sensors';
 import { AndController, PythonController } from './logic/controllers';
 import { MotionActuator, InventoryActuator, MiningActuator, SpawnActuator } from './logic/actuators';
+import { OrderbookActuator, ContractActuator, EventSensor, ShopActuator, ArmoryActuator } from './logic/economics_nodes';
 import { Sensor, Controller, Actuator } from './logic/base';
 import {
     ShaderNode, ShaderMaterialGenerator, OutputNode, UniformManager,
@@ -87,6 +91,11 @@ registerActuatorType('NavMoveActuator', (d) => NavMoveActuator.fromJSON(d));
 registerActuatorType('BoneLookAtActuator', (d) => BoneLookAtActuator.fromJSON(d));
 registerActuatorType('BoneTransformActuator', (d) => BoneTransformActuator.fromJSON(d));
 registerActuatorType('SpawnActuator', (d) => SpawnActuator.fromJSON(d));
+registerActuatorType('OrderbookActuator', (d) => OrderbookActuator.fromJSON(d));
+registerActuatorType('ContractActuator', (d) => ContractActuator.fromJSON(d));
+registerActuatorType('ShopActuator', (d) => ShopActuator.fromJSON(d));
+registerActuatorType('ArmoryActuator', (d) => ArmoryActuator.fromJSON(d));
+registerSensorType('EventSensor', (d) => EventSensor.fromJSON(d));
 
 /**
  * Main Engine Orchestrator
@@ -110,8 +119,10 @@ export class B3Engine {
     vehicles: VehicleManager;
     combat: CombatManager;
     public spacetime: SpacetimeManager;
-    public robotics: RoboticsManager;
-    public digitalTwin: DigitalTwinSystem;
+    public robotics!: RoboticsManager;
+    public digitalTwin!: DigitalTwinSystem;
+    public economics: EconomyManager;
+    public web3: typeof B3Web3 = B3Web3;
     projects: ProjectManager = new ProjectManager();
     activeProjectId: string | null = null;
     pathfinder: Pathfinding = new Pathfinding();
@@ -186,6 +197,7 @@ export class B3Engine {
         this.spacetime = new SpacetimeManager(this);
         this.robotics = new UnitreeManager(this);
         this.digitalTwin = new DigitalTwinSystem(this);
+        this.economics = new EconomyManager(this);
         this.mining.init();
 
         this.world = new CANNON.World();

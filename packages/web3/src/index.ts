@@ -1,9 +1,16 @@
-import { PrivyProvider } from '@privy-io/react-auth';
+import { ContractRegistry } from './ContractRegistry';
+import { AssetRegistry } from './AssetRegistry';
+
+export * from './ContractRegistry';
+export * from './AssetRegistry';
 
 /**
  * B3JS Web3 Core
  */
 export class B3Web3 {
+    public static contracts = new ContractRegistry();
+    public static assets = new AssetRegistry();
+
     static async connect() {
         console.log("B3JS: Connecting to Web3...");
         return { address: "0x123...456", status: "CONNECTED" };
