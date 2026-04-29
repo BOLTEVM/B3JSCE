@@ -150,15 +150,16 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
             baseObj?.addActuator(react);
         };
 
-        addReactivity('Thrusters', 'bass', 8, 2, '#ff4400');
-        addReactivity('engineInner', 'mid', 5, 1.5, '#00aaff');
-        addReactivity('engineOuter', 'volume', 3, 1, '#ffffff');
-        addReactivity('tunnelPiece', 'bass', 6, 1.5, '#aa00ff');
-        addReactivity('TableMesh', 'mid', 4, 1.2, '#ff00ff');
-        addReactivity('FanMesh', 'treble', 5, 1, '#00ff00');
-        addReactivity('r1_2', 'volume', 3, 1.5, '#ff00ff');
-        addReactivity('r2_2', 'bass', 3, 1.5, '#00ffff');
-        addReactivity('r3_3', 'treble', 3, 1.5, '#ff6600');
+        addReactivity('Thrusters', 'bass', 8, 3, '#ff4400');
+        addReactivity('engineInner', 'mid', 5, 2, '#00aaff');
+        addReactivity('engineOuter', 'volume', 3, 1.5, '#ffffff');
+        addReactivity('Tunnels', 'bass', 6, 4, '#aa00ff'); // Increased intensity for purple pipes
+        addReactivity('FloorLines', 'mid', 2, 5, '#eeff00'); // Targeted yellow floor lines
+        addReactivity('TableMesh', 'mid', 4, 2, '#ff00ff');
+        addReactivity('FanMesh', 'treble', 5, 2, '#00ff00');
+        addReactivity('r1_2', 'volume', 3, 2, '#ff00ff');
+        addReactivity('r2_2', 'bass', 3, 2, '#00ffff');
+        addReactivity('r3_3', 'treble', 3, 2, '#ff6600');
 
         // 4. Video Player
         const video = new VideoPlayerActuator();
