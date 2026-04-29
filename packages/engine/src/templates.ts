@@ -213,19 +213,6 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
 
     engine.addObject(kiosk);
 
-    // 5. Boundary pillars
-    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x16213e, roughness: 0.5 });
-    const positions = [[-12,0,-12],[12,0,-12],[-12,0,12],[12,0,12]];
-    positions.forEach((p, i) => {
-        const pMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 6, 8), pillarMat);
-        pMesh.position.set(p[0], 3, p[2]);
-        pMesh.castShadow = true;
-        const pObj = new B3Object(pMesh);
-        pObj.name = `Pillar ${i + 1}`;
-        pObj.type = 'Environment';
-        pObj.isStatic = true;
-        engine.addObject(pObj);
-    });
 
     // 6. User Spawn Point
     const spawn = engine.createSpawnPoint("User Spawn");
