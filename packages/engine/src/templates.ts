@@ -185,7 +185,7 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
         { name: 'Bolt Tunnel', url: '/models/bolt-tunnel.glb', pos: [0,0,0], scale: 1 },
         { name: 'Bolt Lights', url: '/models/bolt-lights-t2.glb', pos: [0, 0, 0], scale: 1 },
         { name: 'Bolt Gate', url: '/models/bolt-gate.glb', pos: [-10.1553, 0.42426, 14.9469], rot: [0, Math.PI / 2, 0], scale: 1 },
-        { name: 'Bolt Panel', url: '/models/bolt-panel.glb', pos: [0, 0, 0], scale: 1 },
+        { name: 'Bolt Panel', url: '/models/bolt-panel.glb', pos: [16.1925, 0.36133, 13.4938], scale: 1 },
         { name: 'Bolt Tablet', url: '/models/bolt-tablet.glb', pos: [0, 0, 0], scale: 1 },
         { name: 'gORB', url: '/models/gORB.glb', pos: [0, 150, 0], scale: 1 },
         { name: 'Metakey', url: '/models/metakey.glb', pos: [-17.7667, 1.91591, 9.52224], scale: 1 },
