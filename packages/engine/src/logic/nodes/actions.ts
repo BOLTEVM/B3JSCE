@@ -422,11 +422,11 @@ export class CutSceneNode extends LogicNode {
         } else if (pinId.includes('Play')) {
             ctx.engine.playCutscene(this.keyframes, () => {
                 // When finished, fire the output pin
-                this.state = 'TRIGGERED';
-                // Trigger next node in chain if possible
-                if (ctx.engine.graphExecutor) {
+                 this.state = 'TRIGGERED';
+                 // Trigger next node in chain if possible
+                if ((ctx as any).executor && typeof (ctx as any).executor.executePin === 'function') {
                      const outPin = this.outputs.find(p => p.name === 'Finished');
-                     if (outPin) (ctx.engine.graphExecutor as any).followExecChain(outPin, ctx);
+                     if (outPin) (ctx as any).executor.executePin(outPin.id, ctx);
                 }
             });
         } else if (pinId.includes('Clear')) {

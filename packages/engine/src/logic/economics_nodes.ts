@@ -15,7 +15,7 @@ export class OrderbookActuator extends Actuator {
             dataIn(this.id, 'MarketID', 'string', 'BOLT-USDC'),
             dataIn(this.id, 'Side', 'string', 'BUY'),
             dataIn(this.id, 'Price', 'string', '1000'),
-            dataIn(this.id, 'Amount', 'string', '1.0')
+            dataIn(this.id, 'Amount', 'string', '1')
         ];
         this.outputs = [
             execOut(this.id, 'OnPlaced'),
@@ -42,8 +42,15 @@ export class OrderbookActuator extends Actuator {
             const marketId = this.getInput('MarketID');
             const sideStr = this.getInput('Side');
             const side = sideStr === 'BUY' ? OrderSide.BUY : OrderSide.SELL;
-            const price = BigInt(this.getInput('Price'));
-            const amount = BigInt(this.getInput('Amount') || "1");
+            let price: bigint;
+            let amount: bigint;
+            try {
+                price = BigInt(this.getInput('Price'));
+                amount = BigInt(this.getInput('Amount') || '1');
+            } catch (e) {
+                console.error('[ECONOMY] Invalid Price/Amount for order placement.', e);
+                return;
+            }
             
             const orderId = nanoid();
             const order: Order = {
@@ -115,7 +122,13 @@ export class ContractActuator extends Actuator {
             const engine = ctx.engine;
             const contractName = this.getInput('ContractName');
             const method = this.getInput('Method');
-            const args = JSON.parse(this.getInput('Args') || '[]');
+            let args: any[] = [];
+            try {
+                args = JSON.parse(this.getInput('Args') || '[]');
+            } catch (e) {
+                console.error(`[WEB3] Invalid JSON args for ${contractName}.${method}`, e);
+                return;
+            }
             const value = this.getInput('Value');
 
             const contract = engine.web3.contracts.get(contractName);
