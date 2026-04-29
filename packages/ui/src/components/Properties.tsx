@@ -295,6 +295,16 @@ export const Properties = ({
             </div>
 
             <div class="prop-row">
+                <div class="prop-label" style="font-size: 9px;">Locked</div>
+                <input type="checkbox" checked={selectedObject.locked} 
+                       onChange={(e: any) => {
+                           selectedObject.locked = e.target.checked;
+                           if (e.target.checked) engine.selectObject(null); // Deselect if locked
+                           onRender();
+                       }} />
+            </div>
+
+            <div class="prop-row">
                 <div class="prop-label" style="font-size: 9px;">Static Object</div>
                 <input type="checkbox" checked={selectedObject.isStatic} 
                        onChange={(e: any) => {

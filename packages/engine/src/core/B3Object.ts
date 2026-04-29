@@ -146,6 +146,7 @@ export class B3Object {
     public avatarUrl: string = "";
     private visualGroup: THREE.Group = new THREE.Group();
     private _visible: boolean = true;
+    public locked: boolean = false;
     get visible(): boolean { return this._visible; }
     set visible(v: boolean) {
         this._visible = v;
@@ -568,6 +569,7 @@ export class B3Object {
             type: this.type,
             networkId: this.networkId,
             visible: this.visible,
+            locked: this.locked,
             syncTransform: this.syncTransform,
             isStatic: this.isStatic,
             isActor: this.isActor,
@@ -617,6 +619,7 @@ export class B3Object {
         obj.type = data.type;
         obj.networkId = data.networkId || obj.networkId;
         obj.visible = data.visible !== undefined ? data.visible : true;
+        obj.locked = data.locked || false;
         obj.syncTransform = data.syncTransform !== undefined ? data.syncTransform : true;
         obj.isStatic = data.isStatic || false;
         obj.isActor = data.isActor || false;

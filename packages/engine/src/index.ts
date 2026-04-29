@@ -686,7 +686,21 @@ self.onmessage = function(e) {
             while (obj3d && !obj3d.userData.b3obj) obj3d = obj3d.parent!;
 
             if (obj3d && obj3d.userData.b3obj) {
-                this.selectObject(obj3d.userData.b3obj.id);
+                const b3obj = obj3d.userData.b3obj;
+                if (b3obj.locked) {
+                    // Search for deeper objects if the first hit is locked
+                    for (let i = 1; i < intersects.length; i++) {
+                        let subObj = intersects[i].object;
+                        while (subObj && !subObj.userData.b3obj) subObj = subObj.parent!;
+                        if (subObj && subObj.userData.b3obj && !subObj.userData.b3obj.locked) {
+                            this.selectObject(subObj.userData.b3obj.id);
+                            return;
+                        }
+                    }
+                    this.selectObject(null);
+                    return;
+                }
+                this.selectObject(b3obj.id);
             } else {
                 this.selectObject(null);
             }
