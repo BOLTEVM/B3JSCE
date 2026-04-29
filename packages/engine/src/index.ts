@@ -307,6 +307,10 @@ export class B3Engine {
             isDraggingCam = true;
         }, true);
 
+        container.addEventListener('dblclick', (e) => {
+            this.handleDoubleClick(e);
+        });
+
         window.addEventListener('mouseup', (e) => {
             const diffX = Math.abs(e.clientX - startX);
             const diffY = Math.abs(e.clientY - startY);
@@ -682,18 +686,22 @@ self.onmessage = function(e) {
             while (obj3d && !obj3d.userData.b3obj) obj3d = obj3d.parent!;
 
             if (obj3d && obj3d.userData.b3obj) {
-                this.selectedObject = obj3d.userData.b3obj;
-                this.gizmo.attach(this.selectedObject!.object);
-                console.log("Selected:", this.selectedObject!.name);
+                this.selectObject(obj3d.userData.b3obj.id);
             } else {
-                this.selectedObject = null;
-                this.gizmo.detach();
+                this.selectObject(null);
             }
         } else {
-            this.selectedObject = null;
-            this.gizmo.detach();
+            this.selectObject(null);
         }
-        this.onSelectionChange(this.selectedObject);
+    }
+
+    private handleDoubleClick(e: MouseEvent) {
+        this.handleClick(e);
+        if (this.selectedObject) {
+            console.log("Double Clicked:", this.selectedObject.name);
+            // Optional: Smoothly move camera towards object?
+            // For now, just ensure onSelectionChange is fired with a special flag if needed.
+        }
     }
 
     private handleWheel(e: WheelEvent) {

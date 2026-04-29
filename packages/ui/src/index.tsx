@@ -735,6 +735,14 @@ export class B3Editor extends HTMLElement {
                 })}
             </div>
         ) as any);
+        
+        // Ensure selected item is visible in outliner
+        setTimeout(() => {
+            const selectedItem = this.shadowRoot?.querySelector('.tree-item.selected');
+            if (selectedItem) {
+                selectedItem.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }, 50);
     }
 
     private renderDropdown(menu: string) {
