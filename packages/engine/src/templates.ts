@@ -105,7 +105,7 @@ export async function createBoltevmTemplate(engine: any, name = 'Boltevm World')
     } catch (e) { console.warn('B3JS: Bolt Base not found, skipping.', e); }
 
     const hyperfyModels: Array<{name: string, url: string, pos?: number[], scale?: number, snap?: string}> = [
-        { name: 'Bolt Elevator', url: '/models/bolt-elevator-t.glb', pos: [-27.571096962155902, 0.03854718638173105, -1.4555988751008746], scale: 1 },
+        { name: 'Bolt Elevator', url: '/models/bolt-elevator-t.glb', pos: [-27.9294, 0.03854, -1.5470], scale: 1 },
         { name: 'Bolt Engine', url: '/models/bolt-engine.glb', pos: [0,0,0], scale: 1 },
         { name: 'Bolt Speakers', url: '/models/bolt-speakers-t.glb', snap: 'speaker_mount', pos: [0,0,0], scale: 1 },
         { name: 'Bolt Tunnel', url: '/models/bolt-tunnel.glb', pos: [0,0,0], scale: 1 },
