@@ -40,6 +40,7 @@ export class B3Editor extends HTMLElement {
     private selectedShaderNode: any | null = null;
     private isResizingLogic: boolean = false;
     private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' = 'logic';
+    private miningEventHandlers: Partial<Record<'fractal' | 'quai' | 'qrl', () => void>> = {};
 
     private root: HTMLElement;
 
@@ -357,8 +358,10 @@ export class B3Editor extends HTMLElement {
         window.addEventListener('mouseup', this.handleMouseUp);
         (window as any).B3_EDITOR_INSTANCE = this;
 
-        ['fractal', 'quai', 'qrl'].forEach(type => {
-            window.addEventListener(`b3js:mining:${type}`, () => this.render());
+        (['fractal', 'quai', 'qrl'] as const).forEach(type => {
+            const handler = () => this.render();
+            this.miningEventHandlers[type] = handler;
+            window.addEventListener(`b3js:mining:${type}`, handler);
         });
 
         // Signal to consumers that the editor DOM is ready
@@ -373,6 +376,10 @@ export class B3Editor extends HTMLElement {
         window.removeEventListener('click', this.handleGlobalClick);
         window.removeEventListener('mousemove', this.handleMouseMove);
         window.removeEventListener('mouseup', this.handleMouseUp);
+        (['fractal', 'quai', 'qrl'] as const).forEach(type => {
+            const handler = this.miningEventHandlers[type];
+            if (handler) window.removeEventListener(`b3js:mining:${type}`, handler);
+        });
         (window as any).B3_EDITOR_INSTANCE = null;
     }
 

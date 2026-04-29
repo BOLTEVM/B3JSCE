@@ -12,6 +12,9 @@ export interface ExecutionContext {
     engine: any;   // B3Engine
     variables: VariableStore;
     getPinValue: (pinId: string) => any;
+    executor?: {
+        executePin: (pinId: string, ctx: ExecutionContext) => void;
+    };
 }
 
 // ─── Variable Store ────────────────────────────────────────────
@@ -85,6 +88,7 @@ export class GraphExecutor {
     private nodes: Map<string, IGraphNode> = new Map();
     private pins: Map<string, IPin> = new Map();
     private connections: IConnection[] = [];
+    private readonly maxExecSteps = 1000;
 
     constructor(
         public variables: VariableStore = new VariableStore()
@@ -161,6 +165,13 @@ export class GraphExecutor {
             variables: this.variables,
             getPinValue: (pinId: string) => this.resolveDataPin(pinId)
         };
+        ctx.executor = {
+            executePin: (pinId: string, execCtx: ExecutionContext) => {
+                const pin = this.pins.get(pinId);
+                if (!pin || pin.dataType !== 'exec') return;
+                this.followExecChain(pin, execCtx, new Set<string>(), { count: 0 });
+            }
+        };
 
         // 1. Find all Event nodes (nodes with no exec input pins) — they are entry points
         for (const [, node] of this.nodes) {
@@ -171,15 +182,30 @@ export class GraphExecutor {
                 if (firstExecOut) {
                     node.onExecute('__event__', ctx);
                     // Follow outgoing exec connections
-                    this.followExecChain(firstExecOut, ctx);
+                    this.followExecChain(firstExecOut, ctx, new Set<string>(), { count: 0 });
                 }
             }
         }
     }
 
     /** Follow an exec output pin to all connected exec input pins and execute their nodes */
-    private followExecChain(execOutPin: IPin, ctx: ExecutionContext) {
+    private followExecChain(
+        execOutPin: IPin,
+        ctx: ExecutionContext,
+        visitedEdges: Set<string>,
+        budget: { count: number }
+    ) {
         for (const targetPinId of execOutPin.connectedTo) {
+            const edgeKey = `${execOutPin.id}->${targetPinId}`;
+            if (visitedEdges.has(edgeKey)) continue;
+            visitedEdges.add(edgeKey);
+
+            budget.count++;
+            if (budget.count > this.maxExecSteps) {
+                console.warn(`B3JS Graph: Execution budget exceeded (${this.maxExecSteps}). Possible cycle detected.`);
+                return;
+            }
+
             const targetPin = this.pins.get(targetPinId);
             if (!targetPin || targetPin.dataType !== 'exec') continue;
 
@@ -199,7 +225,7 @@ export class GraphExecutor {
             // Follow any outgoing exec pins from this node
             for (const output of targetNode.outputs) {
                 if (output.dataType === 'exec' && output.connectedTo.length > 0) {
-                    this.followExecChain(output, ctx);
+                    this.followExecChain(output, ctx, visitedEdges, budget);
                 }
             }
         }

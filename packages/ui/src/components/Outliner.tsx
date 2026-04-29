@@ -9,7 +9,10 @@ export const Outliner = ({
     const renderTree = (obj: any) => (
         <div key={obj.id}>
             <div class={`tree-item ${selectedObjectId === obj.id ? 'selected' : ''}`}
-                onClick={() => onSelect(obj.id)}>
+                onClick={(e: MouseEvent) => {
+                    e.stopPropagation();
+                    onSelect(obj.id);
+                }}>
                 
                 {/* Visibility Toggle (Eyeball) */}
                 <span class="visibility-toggle" 
