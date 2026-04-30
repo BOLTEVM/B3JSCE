@@ -7,8 +7,8 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "bun --filter web-app run dev",
-    "build": "bun build ./apps/web/index.ts --outdir ./apps/web/dist"
+    "dev": "bun run --filter web-app dev",
+    "build": "bun run --filter web-app build"
   },
   "dependencies": {
     "@types/three": "^0.184.0",

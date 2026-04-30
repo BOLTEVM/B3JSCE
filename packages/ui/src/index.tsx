@@ -12,15 +12,9 @@ import { Properties } from './components/Properties';
 import { LogicEditor } from './components/LogicEditor';
 import { MiningPanel } from './components/MiningPanel';
 import { SettingsModal } from './components/SettingsModal';
-import { Viewport } from './components/Viewport';
-import { ShaderEditor } from './components/ShaderEditor';
-import { AudioPanel } from './components/AudioPanel';
-import { NetworkPanel } from './components/NetworkPanel';
-import { OptimizationPanel } from './components/OptimizationPanel';
-import { InventoryPanel } from './components/InventoryPanel';
-import { ProjectModal } from './components/ProjectModal';
-import { RoboticsPanel } from './components/RoboticsPanel';
 import { XRToolbar } from './components/XRToolbar';
+
+type ComponentFn = (props: any) => any;
 
 /**
  * Industry-Standard B3JS Engine Editor
@@ -32,6 +26,8 @@ export class B3Editor extends HTMLElement {
     private gizmoMode: 'translate' | 'rotate' | 'scale' = 'translate';
     private isSettingsOpen: boolean = false;
     private isProjectModalOpen: boolean = false;
+    private isHelpOpen: boolean = false;
+    private isAboutOpen: boolean = false;
     private activeMenu: string | null = null;
     private logicHeight: number = 250;
     private isDraggingNode: string | null = null;
@@ -42,6 +38,19 @@ export class B3Editor extends HTMLElement {
     private isResizingLogic: boolean = false;
     private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' = 'logic';
     private miningEventHandlers: Partial<Record<'fractal' | 'quai' | 'qrl', () => void>> = {};
+    private documentationShortcutBound: boolean = false;
+    private lazyComponents: Record<string, ComponentFn | null> = {
+        ShaderEditor: null,
+        AudioPanel: null,
+        NetworkPanel: null,
+        OptimizationPanel: null,
+        InventoryPanel: null,
+        RoboticsPanel: null,
+        ProjectModal: null,
+        DocumentationModal: null,
+        AboutModal: null,
+    };
+    private lazyComponentPromises: Record<string, Promise<void> | null> = {};
 
     private root: HTMLElement;
 
@@ -61,6 +70,11 @@ export class B3Editor extends HTMLElement {
             storeSelectObject(obj?.id ?? null);
             this.render();
         });
+
+        if (!this.documentationShortcutBound) {
+            window.addEventListener('keydown', this.handleDocumentationShortcut);
+            this.documentationShortcutBound = true;
+        }
 
         // Register Spatial UI (Tablet Outliner)
         this.engine.setSpatialUIRenderer((container: HTMLElement) => {
@@ -388,6 +402,10 @@ export class B3Editor extends HTMLElement {
 
     connectedCallback() {
         this.render();
+        if (!this.documentationShortcutBound) {
+            window.addEventListener('keydown', this.handleDocumentationShortcut);
+            this.documentationShortcutBound = true;
+        }
         window.addEventListener('keydown', this.handleKeyDown);
         window.addEventListener('click', this.handleGlobalClick);
         window.addEventListener('mousemove', this.handleMouseMove);
@@ -409,6 +427,10 @@ export class B3Editor extends HTMLElement {
 
     disconnectedCallback() {
         window.removeEventListener('keydown', this.handleKeyDown);
+        if (this.documentationShortcutBound) {
+            window.removeEventListener('keydown', this.handleDocumentationShortcut);
+            this.documentationShortcutBound = false;
+        }
         window.removeEventListener('click', this.handleGlobalClick);
         window.removeEventListener('mousemove', this.handleMouseMove);
         window.removeEventListener('mouseup', this.handleMouseUp);
@@ -466,10 +488,110 @@ export class B3Editor extends HTMLElement {
         this.render();
     };
 
+    private handleDocumentationShortcut = (e: KeyboardEvent) => {
+        if (e.key !== 'F12') return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        this.openDocumentation();
+    };
+
+    private loadLazyComponent(name: string, loader: () => Promise<any>) {
+        if (this.lazyComponents[name]) return;
+        if (this.lazyComponentPromises[name]) return;
+
+        this.lazyComponentPromises[name] = loader().then((module) => {
+            this.lazyComponents[name] = module[name];
+            this.render();
+        }).finally(() => {
+            this.lazyComponentPromises[name] = null;
+        });
+    }
+
+    private loadBottomTab(tab: typeof this.activeBottomTab) {
+        if (tab === 'shader') this.loadLazyComponent('ShaderEditor', () => import('./components/ShaderEditor'));
+        if (tab === 'audio') this.loadLazyComponent('AudioPanel', () => import('./components/AudioPanel'));
+        if (tab === 'network') this.loadLazyComponent('NetworkPanel', () => import('./components/NetworkPanel'));
+        if (tab === 'optimization') this.loadLazyComponent('OptimizationPanel', () => import('./components/OptimizationPanel'));
+        if (tab === 'inventory') this.loadLazyComponent('InventoryPanel', () => import('./components/InventoryPanel'));
+        if (tab === 'robotics') this.loadLazyComponent('RoboticsPanel', () => import('./components/RoboticsPanel'));
+    }
+
+    private setBottomTab(tab: typeof this.activeBottomTab) {
+        this.activeBottomTab = tab;
+        this.loadBottomTab(tab);
+        this.render();
+    }
+
+    private openProjectModal() {
+        this.activeMenu = null;
+        this.isProjectModalOpen = true;
+        this.loadLazyComponent('ProjectModal', () => import('./components/ProjectModal'));
+        this.render();
+    }
+
+    private openDocumentation() {
+        this.activeMenu = null;
+        this.isHelpOpen = true;
+        this.loadLazyComponent('DocumentationModal', () => import('./components/DocumentationModal'));
+        this.render();
+    }
+
+    private openAbout() {
+        this.activeMenu = null;
+        this.isAboutOpen = true;
+        this.loadLazyComponent('AboutModal', () => import('./components/AboutModal'));
+        this.render();
+    }
+
+    private renderLazyPanel() {
+        return <div style="padding: 14px; color: #777; font-size: 10px;">Loading panel...</div>;
+    }
+
+    private isTextEntryActive() {
+        const activeElement = (this.shadowRoot?.activeElement || document.activeElement) as HTMLElement | null;
+        const tagName = activeElement?.tagName;
+
+        return tagName === 'INPUT'
+            || tagName === 'TEXTAREA'
+            || tagName === 'SELECT'
+            || activeElement?.isContentEditable;
+    }
+
+    private isAnyModalOpen() {
+        return this.isSettingsOpen || this.isProjectModalOpen || this.isHelpOpen || this.isAboutOpen;
+    }
+
+    private closeTopModal() {
+        if (this.isHelpOpen) this.isHelpOpen = false;
+        else if (this.isAboutOpen) this.isAboutOpen = false;
+        else if (this.isProjectModalOpen) this.isProjectModalOpen = false;
+        else if (this.isSettingsOpen) this.isSettingsOpen = false;
+    }
+
     private handleKeyDown = (e: KeyboardEvent) => {
         if (!this.engine) return;
 
         const isCtrl = e.ctrlKey || e.metaKey;
+        const isTextEntryActive = this.isTextEntryActive();
+
+        if (e.key === 'Escape' && this.isAnyModalOpen()) {
+            e.preventDefault();
+            this.closeTopModal();
+            this.render();
+            return;
+        }
+
+        if (this.isAnyModalOpen()) {
+            e.stopImmediatePropagation();
+            return;
+        }
+
+        if (isTextEntryActive) {
+            e.stopImmediatePropagation();
+            return;
+        }
 
         if (isCtrl && e.key.toLowerCase() === 'z') {
             e.preventDefault();
@@ -496,7 +618,7 @@ export class B3Editor extends HTMLElement {
         }
 
         if (e.key === 'Delete' || e.key === 'Backspace') {
-            if (document.activeElement?.tagName !== 'INPUT' && this.selectedObject) {
+            if (this.selectedObject) {
                 this.engine.removeObject(this.selectedObject.id);
                 this.render();
             }
@@ -561,6 +683,16 @@ export class B3Editor extends HTMLElement {
 
     render() {
         const scheme = getActiveScheme();
+        const ShaderEditor = this.lazyComponents.ShaderEditor;
+        const AudioPanel = this.lazyComponents.AudioPanel;
+        const NetworkPanel = this.lazyComponents.NetworkPanel;
+        const OptimizationPanel = this.lazyComponents.OptimizationPanel;
+        const InventoryPanel = this.lazyComponents.InventoryPanel;
+        const RoboticsPanel = this.lazyComponents.RoboticsPanel;
+        const ProjectModal = this.lazyComponents.ProjectModal;
+        const DocumentationModal = this.lazyComponents.DocumentationModal;
+        const AboutModal = this.lazyComponents.AboutModal;
+
         webjsx.applyDiff(this.root, (
             <div id="editor-root" style={`--accent: ${scheme.accent}; --accent-light: ${scheme.accentLight}; grid-template-rows: 40px 1fr 1fr 4px ${this.logicHeight}px 100px;`}>
                 <style>{`
@@ -682,25 +814,25 @@ export class B3Editor extends HTMLElement {
                     <div style="display: flex; background: #222; border-bottom: 1px solid #111;">
                         <div class={`menu-item ${this.activeBottomTab === 'logic' ? 'active' : ''}`} 
                              style="height: 24px; font-size: 9px;"
-                             onClick={() => { this.activeBottomTab = 'logic'; this.render(); }}>Logic Bricks</div>
+                             onClick={() => this.setBottomTab('logic')}>Logic Bricks</div>
                         <div class={`menu-item ${this.activeBottomTab === 'shader' ? 'active' : ''}`} 
                              style="height: 24px; font-size: 9px;"
-                             onClick={() => { this.activeBottomTab = 'shader'; this.render(); }}>Shader Graph</div>
+                             onClick={() => this.setBottomTab('shader')}>Shader Graph</div>
                         <div class={`menu-item ${this.activeBottomTab === 'audio' ? 'active' : ''}`} 
                              style="height: 24px; font-size: 9px;"
-                             onClick={() => { this.activeBottomTab = 'audio'; this.render(); }}>Audio Tools</div>
+                             onClick={() => this.setBottomTab('audio')}>Audio Tools</div>
                          <div class={`menu-item ${this.activeBottomTab === 'network' ? 'active' : ''}`} 
                               style="height: 24px; font-size: 9px;"
-                              onClick={() => { this.activeBottomTab = 'network'; this.render(); }}>Network Scene</div>
+                              onClick={() => this.setBottomTab('network')}>Network Scene</div>
                          <div class={`menu-item ${this.activeBottomTab === 'optimization' ? 'active' : ''}`} 
                               style="height: 24px; font-size: 9px;"
-                              onClick={() => { this.activeBottomTab = 'optimization'; this.render(); }}>Optimization</div>
+                              onClick={() => this.setBottomTab('optimization')}>Optimization</div>
                          <div class={`menu-item ${this.activeBottomTab === 'inventory' ? 'active' : ''}`} 
                               style="height: 24px; font-size: 9px;"
-                              onClick={() => { this.activeBottomTab = 'inventory'; this.render(); }}>Inventory</div>
+                              onClick={() => this.setBottomTab('inventory')}>Inventory</div>
                          <div class={`menu-item ${this.activeBottomTab === 'robotics' ? 'active' : ''}`} 
                               style="height: 24px; font-size: 9px;"
-                              onClick={() => { this.activeBottomTab = 'robotics'; this.render(); }}>Robotics</div>
+                              onClick={() => this.setBottomTab('robotics')}>Robotics</div>
                      </div>
                     
                     {this.activeBottomTab === 'logic' && LogicEditor({ 
@@ -710,29 +842,27 @@ export class B3Editor extends HTMLElement {
                         renderWires: () => this.renderWires(),
                         renderNode: (node: any, type: string) => this.renderNode(node, type)
                     })}
-                    {this.activeBottomTab === 'shader' && ShaderEditor({
+                    {this.activeBottomTab === 'shader' && (ShaderEditor ? ShaderEditor({
                         selectedObject: this.selectedObject,
                         engine: this.engine,
                         onRender: () => this.render(),
                         renderWires: () => this.renderWires(),
                         renderNode: (node: any, type: string) => this.renderNode(node, type)
-                    })}
-                    {this.activeBottomTab === 'audio' && AudioPanel({ engine: this.engine })}
-                    {this.activeBottomTab === 'network' && NetworkPanel({ 
+                    }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'audio' && (AudioPanel ? AudioPanel({ engine: this.engine }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'network' && (NetworkPanel ? NetworkPanel({ 
                         engine: this.engine,
                         onRender: () => this.render()
-                    })}
-                    {this.activeBottomTab === 'optimization' && OptimizationPanel({ 
+                    }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'optimization' && (OptimizationPanel ? OptimizationPanel({ 
                         engine: this.engine,
                         onRender: () => this.render()
-                    })}
-                    {this.activeBottomTab === 'inventory' && (
-                        <InventoryPanel 
-                            selectedObject={this.selectedObject} 
-                            onRender={() => this.render()}
-                        />
-                    )}
-                    {this.activeBottomTab === 'robotics' && <RoboticsPanel engine={this.engine} />}
+                    }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'inventory' && (InventoryPanel ? InventoryPanel({ 
+                        selectedObject: this.selectedObject, 
+                        onRender: () => this.render()
+                    }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'robotics' && (RoboticsPanel ? RoboticsPanel({ engine: this.engine }) : this.renderLazyPanel())}
                 </div>
 
                 <div class="panel outliner">
@@ -743,7 +873,7 @@ export class B3Editor extends HTMLElement {
                             selectedObjectId: this.selectedObject?.id,
                             selectedSubItem: (this.engine as any)?.selectedSubItem,
                             onSelect: (id: string) => this.engine?.selectObject(id),
-                            onSelectSubItem: (pId: string, type: any, id: string) => (this.engine as any)?.selectSubItem(pId, type, id),
+                            onSelectSubItem: (pId: string, type: any, id: string) => (this.engine as any)?.selectedSubItem(pId, type, id),
                             onDelete: (id: string, name: string) => { if(confirm(`Delete ${name}?`)) this.engine?.removeObject(id); }
                         })}
                     </div>
@@ -773,11 +903,22 @@ export class B3Editor extends HTMLElement {
                 </div>
 
                 {SettingsModal({ isOpen: this.isSettingsOpen, onClose: () => { this.isSettingsOpen = false; this.render(); } })}
-                {ProjectModal({ 
+                
+                {ProjectModal && ProjectModal({ 
                     isOpen: this.isProjectModalOpen, 
                     onClose: () => { this.isProjectModalOpen = false; this.render(); },
                     engine: this.engine,
                     onRender: () => this.render()
+                })}
+
+                {DocumentationModal && DocumentationModal({ 
+                    isOpen: this.isHelpOpen, 
+                    onClose: () => { this.isHelpOpen = false; this.render(); } 
+                })}
+
+                {AboutModal && AboutModal({ 
+                    isOpen: this.isAboutOpen, 
+                    onClose: () => { this.isAboutOpen = false; this.render(); } 
                 })}
             </div>
         ) as any);
@@ -805,7 +946,7 @@ export class B3Editor extends HTMLElement {
                         alert(`Project saved as ${name}`);
                     }
                 }},
-                { label: 'Open Project...', action: () => { this.isProjectModalOpen = true; } },
+                { label: 'Open Project...', action: () => this.openProjectModal() },
                 { type: 'divider' },
                 { label: 'Import JSON', action: () => this.importProject() },
                 { label: 'Export JSON', action: () => this.exportProject() },
@@ -862,8 +1003,8 @@ export class B3Editor extends HTMLElement {
                 { label: 'Deselect', shortcut: 'Alt+A' }
             ],
             'Help': [
-                { label: 'Documentation' },
-                { label: 'About B3JS' }
+                { label: 'Documentation (F12)', action: () => this.openDocumentation() },
+                { label: 'About B3JS', action: () => this.openAbout() }
             ],
             'Scene': [
                 ...Array.from(this.engine?.sceneRegistry.keys() || []).map(name => ({

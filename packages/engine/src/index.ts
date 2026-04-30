@@ -5,7 +5,6 @@ import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRe
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
-import { Pathfinding } from 'three-pathfinding';
 
 import { AudioManager } from './audio';
 import { B3AudioSource } from './audio_sources';
@@ -136,8 +135,9 @@ export class B3Engine {
     public web3: typeof B3Web3 = B3Web3;
     projects: ProjectManager = new ProjectManager();
     activeProjectId: string | null = null;
-    pathfinder: Pathfinding = new Pathfinding();
+    pathfinder: any = null;
     pathfinderWorker: Worker | null = null;
+    private pathfindingLoader: Promise<any> | null = null;
     private _pathCallbacks: Map<number, (path: any) => void> = new Map();
     private _pathIdSeq: number = 0;
     navMeshId: string = 'main_nav';
@@ -240,6 +240,21 @@ export class B3Engine {
     playbackKeyframes: any[] = [];
     private onCutsceneFinished: (() => void) | null = null;
     private isPointerLocked: boolean = false;
+
+    private isTextEntryEvent(e: KeyboardEvent) {
+        const path = typeof e.composedPath === 'function' ? e.composedPath() : [];
+        const target = (path[0] || e.target || document.activeElement) as HTMLElement | null;
+        const activeElement = document.activeElement as HTMLElement | null;
+        const elements = [target, activeElement];
+
+        return elements.some((element) => {
+            const tagName = element?.tagName;
+            return tagName === 'INPUT'
+                || tagName === 'TEXTAREA'
+                || tagName === 'SELECT'
+                || element?.isContentEditable;
+        });
+    }
 
     constructor(private container: HTMLElement) {
         this.scene = new THREE.Scene();
@@ -354,7 +369,29 @@ export class B3Engine {
         this.scene.add(this.gizmo.getHelper());
 
         window.addEventListener('resize', () => this.onResize());
-        window.addEventListener('keydown', (e) => this.keysDown.add(e.code));
+        window.addEventListener('keydown', (e) => {
+            this.keysDown.add(e.code);
+
+            // Prevent keybinds if user is typing in an input field
+            if (this.isTextEntryEvent(e)) return;
+
+            switch(e.code) {
+                case 'KeyG': this.setGizmoMode('translate'); break;
+                case 'KeyR': this.setGizmoMode('rotate'); break;
+                case 'KeyS': this.setGizmoMode('scale'); break;
+                case 'KeyF': if (this.selectedObject) this.focusObject(this.selectedObject); break;
+                case 'KeyX': 
+                case 'Delete': 
+                    if (this.selectedObject) this.removeObject(this.selectedObject.id); 
+                    break;
+                case 'KeyD':
+                    if (e.shiftKey && this.selectedObject) {
+                        e.preventDefault();
+                        this.duplicateObject(this.selectedObject);
+                    }
+                    break;
+            }
+        });
         window.addEventListener('keyup', (e) => this.keysDown.delete(e.code));
         container.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
 
@@ -400,7 +437,7 @@ export class B3Engine {
 
         container.addEventListener('dblclick', (e) => {
             this.handleDoubleClick(e);
-        });
+        }, true);
 
         window.addEventListener('mouseup', (e) => {
             const diffX = Math.abs(e.clientX - startX);
@@ -441,6 +478,23 @@ export class B3Engine {
         document.addEventListener('pointerlockchange', () => {
             this.isPointerLocked = !!document.pointerLockElement;
         });
+
+    }
+
+    private async loadPathfinding() {
+        if (!this.pathfindingLoader) {
+            this.pathfindingLoader = import(/* @vite-ignore */ 'https://esm.sh/three-pathfinding@1.3.0' as any).then((module: any) => {
+                const Pathfinding = module.Pathfinding;
+                if (!this.pathfinder) this.pathfinder = new Pathfinding();
+                return Pathfinding;
+            });
+        }
+
+        return this.pathfindingLoader;
+    }
+
+    private initializePathfinderWorker() {
+        if (this.pathfinderWorker) return;
 
         // Initialize Inline Blob Worker
         const workerCode = `
@@ -652,7 +706,7 @@ self.onmessage = function(e) {
     }
 
     // ─── NPC & Pathfinding ─────────────────────────────────────
-    bakeNavMesh() {
+    async bakeNavMesh() {
         console.log("B3JS Engine: Baking NavMesh...");
         const staticMeshes: THREE.Mesh[] = [];
         this.objects.forEach(obj => {
@@ -666,8 +720,10 @@ self.onmessage = function(e) {
             return;
         }
 
+        const Pathfinding = await this.loadPathfinding();
         const zone = Pathfinding.createZone(staticMeshes[0].geometry);
         this.pathfinder.setZoneData(this.navMeshId, zone);
+        this.initializePathfinderWorker();
         if (this.pathfinderWorker) {
             this.pathfinderWorker.postMessage({ type: 'setZoneData', zoneId: this.navMeshId, zone });
         }
@@ -675,6 +731,7 @@ self.onmessage = function(e) {
     }
 
     async requestPath(start: THREE.Vector3, target: THREE.Vector3): Promise<THREE.Vector3[] | null> {
+        this.initializePathfinderWorker();
         if (!this.pathfinderWorker) return null;
         
         return new Promise((resolve) => {
@@ -769,15 +826,17 @@ self.onmessage = function(e) {
         if (this.onSelectionChange) this.onSelectionChange(this.selectedObject);
     }
 
-    private handleClick(e: MouseEvent) {
+    private handleClick(e: MouseEvent, skipGizmo: boolean = false) {
         const rect = this.container.getBoundingClientRect();
         this.mouse.x = ((e.clientX - rect.left) / this.container.clientWidth) * 2 - 1;
         this.mouse.y = -((e.clientY - rect.top) / this.container.clientHeight) * 2 + 1;
 
         this.raycaster.setFromCamera(this.mouse, this.camera);
 
-        const gizmoIntersects = this.raycaster.intersectObjects(this.gizmo.getHelper().children, true);
-        if (gizmoIntersects.length > 0) return;
+        if (!skipGizmo) {
+            const gizmoIntersects = this.raycaster.intersectObjects(this.gizmo.getHelper().children, true);
+            if (gizmoIntersects.length > 0) return;
+        }
 
         const intersects = this.raycaster.intersectObjects(this.scene.children, true);
 
@@ -810,12 +869,30 @@ self.onmessage = function(e) {
     }
 
     private handleDoubleClick(e: MouseEvent) {
-        this.handleClick(e);
+        // Force selection of the object even if the gizmo is in the way
+        this.handleClick(e, true); 
         if (this.selectedObject) {
-            console.log("Double Clicked:", this.selectedObject.name);
-            // Optional: Smoothly move camera towards object?
-            // For now, just ensure onSelectionChange is fired with a special flag if needed.
+            this.focusObject(this.selectedObject);
         }
+    }
+
+    public focusObject(obj: B3Object) {
+        const box = new THREE.Box3().setFromObject(obj.object);
+        const center = new THREE.Vector3();
+        box.getCenter(center);
+        
+        const sphere = new THREE.Sphere();
+        box.getBoundingSphere(sphere);
+        
+        const dist = sphere.radius / Math.tan((Math.PI * this.camera.fov) / 360);
+        
+        // Offset camera slightly to avoid being exactly inside or too far
+        const direction = new THREE.Vector3().subVectors(this.camera.position, center).normalize();
+        const targetPos = center.clone().add(direction.multiplyScalar(dist * 2));
+        
+        // Smoothly move camera (immediate for now, can be tweened later if desired)
+        this.camera.position.copy(targetPos);
+        this.camera.lookAt(center);
     }
 
     private handleWheel(e: WheelEvent) {

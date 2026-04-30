@@ -3,6 +3,29 @@ import path from 'path';
 import { readFileSync } from 'fs';
 
 export default defineConfig({
+  build: {
+    chunkSizeWarningLimit: 850,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return;
+
+          if (id.includes('/three/examples/') || id.includes('\\three\\examples\\')) return 'vendor-three-examples';
+          if (id.includes('/three/') || id.includes('\\three\\')) return 'vendor-three';
+          if (id.includes('three-pathfinding')) return 'vendor-pathfinding';
+          if (id.includes('/cannon-es/') || id.includes('\\cannon-es\\')) return 'vendor-physics';
+          if (id.includes('/ethers/') || id.includes('\\ethers\\')) return 'vendor-web3';
+          if (id.includes('@noble') || id.includes('@scure') || id.includes('aes-js') || id.includes('uuid')) return 'vendor-crypto';
+          if (id.includes('/spacetimedb/') || id.includes('\\spacetimedb\\')) return 'vendor-spacetime';
+          if (id.includes('/webjsx/') || id.includes('\\webjsx\\') || id.includes('/nanostores/') || id.includes('\\nanostores\\')) return 'vendor-ui';
+          if (id.includes('cbor2') || id.includes('bson') || id.includes('fast-png') || id.includes('iobuffer') || id.includes('fflate') || id.includes('@cto.af')) return 'vendor-codecs';
+          if (id.includes('roslib') || id.includes('eventemitter3')) return 'vendor-robotics';
+
+          return 'vendor';
+        },
+      },
+    },
+  },
   resolve: {
     alias: {
       '@b3js/engine': path.resolve(__dirname, '../../packages/engine/src/index.ts'),
