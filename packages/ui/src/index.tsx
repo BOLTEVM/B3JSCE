@@ -1,6 +1,6 @@
 import * as webjsx from 'webjsx';
 import * as THREE from 'three';
-import { B3Engine, B3Object, Sensor, Controller, Actuator, KeyboardSensor, AndController, MotionActuator, PIN_COLORS } from '@b3js/engine';
+import { B3Engine, B3Object, Sensor, Controller, Actuator, KeyboardSensor, AndController, MotionActuator, PIN_COLORS, createSwapScaleTemplate } from '@b3js/engine';
 import { selectObject as storeSelectObject } from './store/selectionStore';
 import { getActiveScheme } from './store/colorScheme';
 
@@ -20,6 +20,7 @@ import { OptimizationPanel } from './components/OptimizationPanel';
 import { InventoryPanel } from './components/InventoryPanel';
 import { ProjectModal } from './components/ProjectModal';
 import { RoboticsPanel } from './components/RoboticsPanel';
+import { XRToolbar } from './components/XRToolbar';
 
 /**
  * Industry-Standard B3JS Engine Editor
@@ -59,6 +60,41 @@ export class B3Editor extends HTMLElement {
             this.selectedObject = obj;
             storeSelectObject(obj?.id ?? null);
             this.render();
+        });
+
+        // Register Spatial UI (Tablet Outliner)
+        this.engine.setSpatialUIRenderer((container: HTMLElement) => {
+            webjsx.applyDiff(container, (
+                <div style="height: 100%; display: flex; flex-direction: column;">
+                    <div style="background: #222; padding: 10px; font-weight: bold; font-size: 14px; color: #fff;">
+                        Bolt Tablet OS
+                    </div>
+                    <div style="flex: 1; overflow: hidden;">
+                        {Outliner({ 
+                            objects: this.engine?.objects || [], 
+                            selectedObjectId: this.selectedObject?.id, 
+                            onSelect: (id: any) => this.engine?.selectObject(id),
+                            onDelete: (id: any, name: any) => { if(confirm(`Delete ${name}?`)) this.engine?.removeObject(id); }
+                        })}
+                    </div>
+                </div>
+            ));
+        });
+
+        // Register Spatial Toolbar
+        this.engine.setSpatialToolbarRenderer((container: HTMLElement) => {
+            webjsx.applyDiff(container, (
+                <XRToolbar 
+                    selectedObject={this.selectedObject}
+                    transformMode={this.gizmoMode}
+                    onAction={(id: string) => {
+                        if (id === 'duplicate') this.engine?.duplicateObject(this.selectedObject!);
+                        else if (id === 'delete') this.engine?.removeObject(this.selectedObject!.id);
+                        else this.setGizmoMode(id as any);
+                    }}
+                    onClose={() => this.engine?.selectObject(null)}
+                />
+            ));
         });
 
         // Initialize SpacetimeDB connection for real-time multiplayer sync
@@ -705,7 +741,9 @@ export class B3Editor extends HTMLElement {
                         {Outliner({ 
                             objects: this.engine?.objects || [],
                             selectedObjectId: this.selectedObject?.id,
+                            selectedSubItem: (this.engine as any)?.selectedSubItem,
                             onSelect: (id: string) => this.engine?.selectObject(id),
+                            onSelectSubItem: (pId: string, type: any, id: string) => (this.engine as any)?.selectSubItem(pId, type, id),
                             onDelete: (id: string, name: string) => { if(confirm(`Delete ${name}?`)) this.engine?.removeObject(id); }
                         })}
                     </div>
@@ -716,6 +754,7 @@ export class B3Editor extends HTMLElement {
                     <div id="properties-content">
                         {Properties({ 
                             selectedObject: this.selectedObject,
+                            selectedSubItem: (this.engine as any)?.selectedSubItem,
                             engine: this.engine,
                             selectedShaderNode: this.selectedShaderNode,
                             onRender: () => this.render()
@@ -812,7 +851,11 @@ export class B3Editor extends HTMLElement {
                 { type: 'divider' },
                 { label: 'Robotic: Unitree B1', action: () => this.engine?.createUnitreeBot() },
                 { type: 'divider' },
-                { label: 'System: Spawn Point', action: () => this.engine?.createSpawnPoint() }
+                { label: 'System: Spawn Point', action: () => this.engine?.createSpawnPoint() },
+                { label: 'System: Bolt Tablet (Outliner)', action: () => this.engine?.spawnBoltTabletOutliner() },
+                { label: 'Exchange: Swap Scale', action: () => {
+                    if (this.engine) createSwapScaleTemplate(this.engine);
+                }}
             ],
             'Selection': [
                 { label: 'Select All', shortcut: 'Ctrl+A' },

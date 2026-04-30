@@ -1,9 +1,9 @@
 /** @jsx webjsx.h */
 import * as webjsx from 'webjsx';
 
-export const ShaderEditor = ({ 
-    selectedObject, 
-    engine, 
+export const ShaderEditor = ({
+    selectedObject,
+    engine,
     renderWires,
     renderNode
 }: any) => {
@@ -30,8 +30,8 @@ export const ShaderEditor = ({
 
     return (
         <div style="width: 100%; height: 100%; display: flex; flex-direction: column;"
-             onContextMenu={(e: any) => toggleContextMenu(e, true)}
-             onClick={() => toggleContextMenu({} as any, false)}>
+            onContextMenu={(e: any) => toggleContextMenu(e, true)}
+            onClick={() => toggleContextMenu({} as any, false)}>
             <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
                 <span>Nodal Shader Editor</span>
                 <div style="display: flex; gap: 8px;">
@@ -60,7 +60,8 @@ export const ShaderEditor = ({
                     }}>Compile & Apply</button>
                 </div>
             </div>
-            <div style="flex: 1; overflow: scroll; position: relative;" id="shader-canvas-container">
+            <div style="flex: 1; overflow: scroll; position: relative;" id="shader-canvas-container"
+                onDblClick={(e: any) => toggleContextMenu(e, true)}>
                 <div class="shader-canvas" style="width: 2000px; height: 2000px;">
                     <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
                         {renderWires()}
@@ -69,14 +70,25 @@ export const ShaderEditor = ({
                 </div>
             </div>
 
-            {/* Right-Click Context Menu */}
-            <div id="shader-context-menu" style="display: none; position: fixed; background: #222; border: 1px solid #444; border-radius: 4px; z-index: 1000; padding: 5px; min-width: 120px; box-shadow: 0 4px 10px rgba(0,0,0,0.5);">
-                <div class="menu-item" style="font-size: 10px; padding: 5px;" onClick={() => addNode((engine.constructor as any).ColorNode)}>+ Color Node</div>
-                <div class="menu-item" style="font-size: 10px; padding: 5px;" onClick={() => addNode((engine.constructor as any).PositionNode)}>+ Position Node</div>
-                <div class="menu-item" style="font-size: 10px; padding: 5px;" onClick={() => addNode((engine.constructor as any).TimeNode)}>+ Time Node</div>
-                <div class="menu-item" style="font-size: 10px; padding: 5px;" onClick={() => addNode((engine.constructor as any).MathNode)}>+ Math Node</div>
-                <div class="menu-item" style="font-size: 10px; padding: 5px;" onClick={() => addNode((engine.constructor as any).AudioNode)}>+ Audio Node</div>
-                <div class="menu-item" style="font-size: 10px; padding: 5px; border-top: 1px solid #333; color: #e68523;" onClick={() => { selectedObject.recompileMaterial(); toggleContextMenu({} as any, false); }}>Compile & Apply</div>
+            {/* Right-Click / Double-Click Modal Menu */}
+            <div id="shader-context-menu" style="display: none; position: fixed; background: #1a1a1a; border: 1px solid #444; border-radius: 6px; z-index: 1000; padding: 10px; min-width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); backdrop-filter: blur(5px);">
+                <div style="font-size: 9px; color: #666; font-weight: bold; margin-bottom: 8px; text-transform: uppercase;">Inputs</div>
+                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).ColorNode)}>🎨 Color Node</div>
+                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).PositionNode)}>📍 Position Node</div>
+                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).TimeNode)}>🕒 Time Node</div>
+                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).AudioNode)}>🔊 Audio Node</div>
+
+                <div style="font-size: 9px; color: #666; font-weight: bold; margin: 12px 0 8px 0; text-transform: uppercase;">Generators</div>
+                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).NoiseNode)}>☁️ Simplex Noise</div>
+
+                <div style="font-size: 9px; color: #666; font-weight: bold; margin: 12px 0 8px 0; text-transform: uppercase;">Math & Composition</div>
+                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).MathNode)}>➕ Math Operation</div>
+                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).MixNode)}>🌓 Mix / Lerp</div>
+                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).Vector3Node)}>🧱 Vector3 Compose</div>
+
+                <div style="margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;">
+                    <div class="menu-item" style="font-size: 11px; padding: 6px; color: #e68523; font-weight: bold;" onClick={() => { selectedObject.recompileMaterial(); toggleContextMenu({} as any, false); }}>🏗️ Compile & Apply</div>
+                </div>
             </div>
         </div>
     );

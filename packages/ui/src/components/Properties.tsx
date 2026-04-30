@@ -6,6 +6,7 @@ import { SetPropertyCommand } from '@b3js/engine';
 
 export const Properties = ({ 
     selectedObject, 
+    selectedSubItem,
     engine,
     selectedShaderNode,
     onRender 
@@ -18,12 +19,127 @@ export const Properties = ({
         );
     }
 
+    const renderSubItemInspector = () => {
+        if (!selectedSubItem) return null;
+
+        const { type, id } = selectedSubItem;
+
+        if (type === 'modifier') {
+            const modifier = selectedObject.modifiers.find((m: any) => m.id === id);
+            if (!modifier) return null;
+
+            return (
+                <div class="sub-inspector">
+                    <div class="sub-header">
+                        <span style="color: #60a5fa;">🔧 {modifier.name}</span>
+                        <input type="checkbox" checked={modifier.enabled} onChange={(e: any) => { modifier.enabled = e.target.checked; onRender(); }} />
+                    </div>
+                    <div class="prop-row">
+                        <div class="prop-label">Type</div>
+                        <div style="font-size: 10px; color: #888;">{modifier.type}</div>
+                    </div>
+                    {Object.entries(modifier.properties).map(([key, value]: any) => (
+                        <div class="prop-row" key={key}>
+                            <div class="prop-label">{key}</div>
+                            {typeof value === 'number' ? (
+                                <input type="number" value={value.toString()} onInput={(e: any) => { modifier.properties[key] = parseFloat(e.target.value); onRender(); }} />
+                            ) : typeof value === 'boolean' ? (
+                                <input type="checkbox" checked={value} onChange={(e: any) => { modifier.properties[key] = e.target.checked; onRender(); }} />
+                            ) : (
+                                <input type="text" value={value} onInput={(e: any) => { modifier.properties[key] = e.target.value; onRender(); }} />
+                            )}
+                        </div>
+                    ))}
+                    <div style="font-size: 8px; color: #555; margin-top: 8px;">ID: {modifier.id}</div>
+                </div>
+            );
+        }
+
+        if (type === 'vertexGroup') {
+            const group = selectedObject.vertexGroups.find((vg: any) => vg.name === id);
+            if (!group) return null;
+
+            return (
+                <div class="sub-inspector">
+                    <div class="sub-header">
+                        <span style="color: #34d399;">🧬 {group.name}</span>
+                    </div>
+                    <div class="prop-row">
+                        <div class="prop-label">Vertices</div>
+                        <div style="font-size: 10px; color: #888;">{group.indices.length} indices</div>
+                    </div>
+                    <div style="margin-top: 10px; opacity: 0.5; font-size: 9px; text-align: center;">
+                        Vertex weights are currently read-only.
+                    </div>
+                </div>
+            );
+        }
+
+        if (type === 'logic') {
+            const node = selectedObject.logicNodes.find((ln: any) => ln.name === id);
+            if (!node) return null;
+
+            return (
+                <div class="sub-inspector">
+                    <div class="sub-header">
+                        <span style="color: #facc15;">● {node.name}</span>
+                    </div>
+                    <div class="prop-row">
+                        <div class="prop-label">Type</div>
+                        <div style="font-size: 10px; color: #888;">{node.type.toUpperCase()}</div>
+                    </div>
+                    {node.type === 'collider' && (
+                        <>
+                            <div class="prop-row">
+                                <div class="prop-label">Physics Type</div>
+                                <select onInput={(e: any) => { /* TODO: Change physics type */ }}>
+                                    <option value="box">Box</option>
+                                    <option value="sphere">Sphere</option>
+                                    <option value="mesh">Mesh (Trimesh)</option>
+                                </select>
+                            </div>
+                            <div class="prop-row">
+                                <div class="prop-label">Mass</div>
+                                <input type="number" value="1.0" />
+                            </div>
+                        </>
+                    )}
+                </div>
+            );
+        }
+
+        return null;
+    };
+
     return (
-        <div style="padding: 10px;">
+        <div class="properties-wrapper" style="padding: 10px;">
+            <style>{`
+                .sub-inspector {
+                    background: #1a1a1a;
+                    border-radius: 6px;
+                    padding: 12px;
+                    margin-bottom: 20px;
+                    border: 1px solid #333;
+                    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+                }
+                .sub-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 12px;
+                    font-weight: bold;
+                    margin-bottom: 12px;
+                    border-bottom: 1px solid #333;
+                    padding-bottom: 8px;
+                }
+            `}</style>
             
-            <div style="font-size: 14px; font-weight: bold; margin-bottom: 15px; color: #e68523;">
-                {selectedObject.name}
+            <div style="font-size: 14px; font-weight: bold; margin-bottom: 15px; color: #e68523; display: flex; align-items: center; gap: 8px;">
+                <span style="opacity: 0.5;">📦</span> {selectedObject.name}
             </div>
+
+            {/* Sub-Item Inspector */}
+            {renderSubItemInspector()}
 
             {/* Shader Node Inspector */}
             {selectedShaderNode && (

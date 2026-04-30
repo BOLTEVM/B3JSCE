@@ -10,6 +10,7 @@ export { KeyboardSensor, CollisionSensor, MiningSensor } from './sensors';
 export { AndController, PythonController } from './controllers';
 export { MotionActuator, MiningActuator, Web3ConnectActuator, InventoryActuator } from './actuators';
 export { AudioReactiveActuator, SpinnerActuator, VideoPlayerActuator } from './bolt_nodes';
+export { SwapSensor, SwapController, SwapActuator } from './swap_nodes';
 
 // V2 Pin System
 export { canConnect, PIN_COLORS } from './pins';
@@ -49,17 +50,20 @@ import { KeyboardSensor, CollisionSensor, MiningSensor } from './sensors';
 import { AndController, PythonController } from './controllers';
 import { MotionActuator, MiningActuator, InventoryActuator, Web3ConnectActuator } from './actuators';
 import { AudioReactiveActuator, SpinnerActuator, VideoPlayerActuator } from './bolt_nodes';
+import { SwapSensor, SwapController, SwapActuator } from './swap_nodes';
 import { CSharpController } from './csharp';
 
 // V1 Sensors
 registerSensorType('KeyboardSensor', (d) => KeyboardSensor.fromJSON(d));
 registerSensorType('CollisionSensor', (d) => CollisionSensor.fromJSON(d));
 registerSensorType('MiningSensor', (d) => MiningSensor.fromJSON(d));
+registerSensorType('SwapSensor', (d) => SwapSensor.fromJSON(d));
 
 // V1 Controllers
 registerControllerType('AndController', (d) => AndController.fromJSON(d));
 registerControllerType('PythonController', (d) => PythonController.fromJSON(d));
 registerControllerType('CSharpController', (d) => CSharpController.fromJSON(d));
+registerControllerType('SwapController', (d) => SwapController.fromJSON(d));
 
 // V1 Actuators
 registerActuatorType('MotionActuator', (d, ctx) => MotionActuator.fromJSON(d, ctx?.object));
@@ -69,6 +73,7 @@ registerActuatorType('Web3ConnectActuator', (d) => Web3ConnectActuator.fromJSON(
 registerActuatorType('AudioReactiveActuator', (d) => AudioReactiveActuator.fromJSON(d));
 registerActuatorType('SpinnerActuator', (d) => SpinnerActuator.fromJSON(d));
 registerActuatorType('VideoPlayerActuator', (d) => VideoPlayerActuator.fromJSON(d));
+registerActuatorType('SwapActuator', (d) => SwapActuator.fromJSON(d));
 
 // ─── Register V2 Graph Node Types ──────────────────────────────
 import { OnStartNode, OnTickNode, OnKeyNode, OnCollisionNode, OnTimerNode, OnInteractNode } from './nodes/events';

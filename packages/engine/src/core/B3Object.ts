@@ -160,6 +160,9 @@ export class B3Object {
 
     // GLTF Metadata & Snappoints
     public snappoints: Map<string, THREE.Object3D> = new Map();
+    public logicNodes: { name: string, type: 'gate' | 'elevator' | 'lightcone' | 'collider' | 'mesh', object: THREE.Object3D }[] = [];
+    public vertexGroups: { name: string, indices: number[] }[] = [];
+    public modifiers: { id: string, name: string, type: string, properties: any, enabled: boolean }[] = [];
 
     constructor(public object: THREE.Object3D) {
         this.ecsEntityId = createEntity();
@@ -280,14 +283,39 @@ export class B3Object {
                 foundColliders.push(`${child.name}(${data.collider})`);
             }
 
-            // 3. Sync other custom properties to B3Object metadata
+            // 3. Logic Nodes (Gates, Elevators, LightCones)
+            if (data.node === 'gate' || child.name.toLowerCase().includes('gate')) {
+                this.logicNodes.push({ name: child.name, type: 'gate', object: child });
+            } else if (data.node === 'elevator' || child.name.toLowerCase().includes('elevator')) {
+                this.logicNodes.push({ name: child.name, type: 'elevator', object: child });
+            } else if (data.node === 'lightcone' || data.node === 'pulse' || child.name.toLowerCase().includes('lightcone')) {
+                this.logicNodes.push({ name: child.name, type: 'lightcone', object: child });
+            } else if (data.node === 'collider' || data.collider) {
+                this.logicNodes.push({ name: child.name, type: 'collider', object: child });
+            } else if (child instanceof THREE.Mesh && !child.name.startsWith('SOCKET_')) {
+                // Also track regular meshes if they aren't sockets
+                this.logicNodes.push({ name: child.name, type: 'mesh', object: child });
+            }
+
+            // 4. Vertex Groups (from userData or attributes)
+            if (data.vertexGroups) {
+                this.vertexGroups = data.vertexGroups;
+            }
+
+            // 5. Modifiers (from userData)
+            if (data.modifiers) {
+                this.modifiers = data.modifiers;
+            }
+
+            // 6. Sync other custom properties to B3Object metadata
             Object.assign(this.metadata, data);
         });
 
-        if (foundSnaps.length > 0 || foundColliders.length > 0) {
+        if (foundSnaps.length > 0 || foundColliders.length > 0 || this.logicNodes.length > 0) {
             console.log(`B3JS Engine: Metadata Extraction for ${this.name}:`, {
                 snappoints: foundSnaps,
-                colliders: foundColliders
+                colliders: foundColliders,
+                logicNodes: this.logicNodes.map(ln => `${ln.name}(${ln.type})`)
             });
         }
     }
@@ -610,6 +638,95 @@ export class B3Object {
             },
             children: this.children.map(c => c.toJSON())
         };
+    }
+
+    clone(): B3Object {
+        const clonedThreeObject = this.object.clone(true);
+        const newObj = new B3Object(clonedThreeObject);
+        
+        // 1. Basic Properties
+        newObj.name = `${this.name} (Copy)`;
+        newObj.type = this.type;
+        newObj.modelUrl = this.modelUrl;
+        newObj.avatarUrl = this.avatarUrl;
+        newObj.isStatic = this.isStatic;
+        newObj.isActor = this.isActor;
+        newObj.teamId = this.teamId;
+        newObj.isVehicle = this.isVehicle;
+        newObj.isWeapon = this.isWeapon;
+        newObj.weaponMode = this.weaponMode;
+        newObj.damage = this.damage;
+        newObj.fireRate = this.fireRate;
+        newObj.projectileForce = this.projectileForce;
+
+        // 2. Metadata & Components
+        newObj.metadata = JSON.parse(JSON.stringify(this.metadata));
+        newObj.vertexGroups = JSON.parse(JSON.stringify(this.vertexGroups));
+        newObj.modifiers = JSON.parse(JSON.stringify(this.modifiers));
+
+        // 3. Re-map Logic Nodes (Three.js pointers)
+        this.logicNodes.forEach(ln => {
+            const newObject = clonedThreeObject.getObjectByName(ln.name);
+            if (newObject) {
+                newObj.logicNodes.push({ name: ln.name, type: ln.type, object: newObject });
+            }
+        });
+
+        // 4. Logic Duplication (Sensors, Controllers, Actuators)
+        if (this._engineRef) {
+            newObj.setEngineRef(this._engineRef);
+            
+            // Duplicate Sensors
+            newObj.sensors = this.sensors.map(s => {
+                const data = s.toJSON();
+                const factory = getSensorFactory(data.type);
+                return factory ? factory(data, newObj) : null;
+            }).filter(n => n !== null);
+
+            // Duplicate Actuators
+            newObj.actuators = this.actuators.map(a => {
+                const data = a.toJSON();
+                const factory = getActuatorFactory(data.type);
+                return factory ? factory(data, newObj) : null;
+            }).filter(n => n !== null);
+
+            // Duplicate Controllers (and re-link duplicated sensors/actuators)
+            newObj.controllers = this.controllers.map(c => {
+                const data = c.toJSON();
+                const factory = getControllerFactory(data.type);
+                const newC = factory ? factory(data, newObj) : null;
+                if (newC) {
+                    // Re-link sensors by matching original IDs or names
+                    c.sensors.forEach(origS => {
+                        const index = this.sensors.indexOf(origS);
+                        if (index !== -1 && newObj.sensors[index]) {
+                            newC.addSensor(newObj.sensors[index]);
+                        }
+                    });
+                    // Re-link actuators
+                    c.actuators.forEach(origA => {
+                        const index = this.actuators.indexOf(origA);
+                        if (index !== -1 && newObj.actuators[index]) {
+                            newC.addActuator(newObj.actuators[index]);
+                        }
+                    });
+                }
+                return newC;
+            }).filter(n => n !== null);
+        }
+
+        // 5. Recursive Children Cloning
+        this.children.forEach(child => {
+            const childClone = child.clone();
+            newObj.addChild(childClone);
+        });
+
+        // 6. Physics Body Recalculation
+        if (this.body) {
+            newObj.recalculatePhysicsBody();
+        }
+
+        return newObj;
     }
 
     static fromJSON(data: any, threeObj: THREE.Object3D): B3Object {

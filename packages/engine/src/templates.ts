@@ -11,6 +11,7 @@ import { createMarketTerminal, createShopKiosk, createWeb3Gateway, createCube, c
 import { HandGestureSensor } from './logic/spatial_nodes';
 import { ElevatorActuator, GateActuator, PulseActuator } from './logic/elevator_nodes';
 import { SpinnerActuator, AudioReactiveActuator, VideoPlayerActuator } from './logic/bolt_nodes';
+import { SwapSensor, SwapController, SwapActuator } from './logic/swap_nodes';
 
 /**
  * Scene template generators. Each accepts a B3Engine reference.
@@ -436,4 +437,83 @@ export function createSpatialWalletTemplate(engine: any, name = 'Spatial Wallet'
     pinPad.object.position.set(0, 1.2, -2.5);
 
     console.log(`B3JS Engine: ${name} Template Generated.`);
+}
+
+export function createSwapScaleTemplate(engine: any) {
+    console.log(`B3JS Engine: Generating Swap Scale Template...`);
+    
+    const root = new B3Object(new THREE.Group());
+    root.name = "Swap Scale Root";
+    root.type = "Interactive";
+    root.object.position.set(0, 0, 0);
+    
+    // 1. Base
+    const baseGeo = new THREE.CylinderGeometry(0.5, 0.6, 0.1, 32);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.8, roughness: 0.2 });
+    const baseMesh = new THREE.Mesh(baseGeo, baseMat);
+    baseMesh.position.y = 0.05;
+    root.object.add(baseMesh);
+
+    // 2. Pillar
+    const pillarGeo = new THREE.CylinderGeometry(0.06, 0.1, 1.2, 16);
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.1 });
+    const pillarMesh = new THREE.Mesh(pillarGeo, pillarMat);
+    pillarMesh.position.y = 0.6;
+    root.object.add(pillarMesh);
+
+    // 3. Arm Assembly
+    const armGroup = new THREE.Group();
+    armGroup.name = "ScaleArm";
+    armGroup.position.set(0, 1.2, 0);
+    root.object.add(armGroup);
+
+    const beamGeo = new THREE.BoxGeometry(2.4, 0.06, 0.06);
+    const beamMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.9 });
+    const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+    armGroup.add(beamMesh);
+
+    // 4. Pans
+    const createPan = (name: string, posX: number) => {
+        const panGroup = new THREE.Group();
+        panGroup.name = name;
+        panGroup.position.set(posX, -0.4, 0);
+        armGroup.add(panGroup);
+
+        const panGeo = new THREE.CylinderGeometry(0.4, 0.4, 0.03, 32);
+        const panMat = new THREE.MeshStandardMaterial({ 
+            color: posX < 0 ? "#8b5cf6" : "#3b82f6", 
+            transparent: true, 
+            opacity: 0.8,
+            emissive: posX < 0 ? "#8b5cf6" : "#3b82f6",
+            emissiveIntensity: 0.2
+        });
+        const panMesh = new THREE.Mesh(panGeo, panMat);
+        panGroup.add(panMesh);
+
+        // Add Pan Sensor
+        const sensor = new SwapSensor(posX < 0 ? 'left' : 'right');
+        const panObj = new B3Object(panGroup);
+        panObj.name = name;
+        panObj.addSensor(sensor);
+        engine.addObject(panObj);
+        
+        return { panObj, sensor };
+    };
+
+    const left = createPan("LeftPan", -1.1);
+    const right = createPan("RightPan", 1.1);
+
+    // 5. Logic Wiring
+    const controller = new SwapController();
+    const actuator = new SwapActuator();
+    
+    // Connect sensors to controller
+    controller.addSensor(left.sensor);
+    controller.addSensor(right.sensor);
+    
+    root.addController(controller);
+    root.addActuator(actuator);
+
+    engine.addObject(root);
+    return root;
 }

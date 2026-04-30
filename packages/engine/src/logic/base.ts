@@ -53,6 +53,7 @@ export abstract class LogicNode implements IGraphNode {
     toJSON(): any {
         return {
             id: this.id,
+            type: this.getTypeName(),
             enabled: this.enabled,
             guiMetadata: this.guiMetadata,
             inputs: this.inputs.map(pinToJSON),

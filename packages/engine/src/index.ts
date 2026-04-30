@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
 import { TransformControls } from 'three/examples/jsm/controls/TransformControls.js';
-import { CSS2DRenderer } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader.js';
 import { MTLLoader } from 'three/examples/jsm/loaders/MTLLoader.js';
@@ -56,7 +56,7 @@ export {
     createMarketTerminal, createShopKiosk, createWeb3Gateway, createArmoryRack,
     createTokenCoin, createPinPad
 } from './factories';
-export { createDefaultEnvironment, createBoltevmTemplate, createExchangeTemplate, createSpatialWalletTemplate } from './templates';
+export { createDefaultEnvironment, createBoltevmTemplate, createExchangeTemplate, createSpatialWalletTemplate, createSwapScaleTemplate } from './templates';
 
 // ─── Internal Imports for B3Engine ─────────────────────────────
 import { B3Object } from './core/B3Object';
@@ -156,12 +156,80 @@ export class B3Engine {
     private loadingManager = new THREE.LoadingManager();
 
     selectedObject: B3Object | null = null;
+    selectedSubItem: { parentId: string, type: 'modifier' | 'vertexGroup' | 'logic', id: string } | null = null;
+    spatialToolbar: CSS2DObject | null = null;
     private gizmo: TransformControls;
     private grid: THREE.GridHelper;
     private raycaster = new THREE.Raycaster();
     private mouse = new THREE.Vector2();
     private onSelectionChange: (obj: B3Object | null) => void = () => { };
+    private spatialUIRenderer: ((container: HTMLElement) => void) | null = null;
     keysDown: Set<string> = new Set();
+
+    setSpatialUIRenderer(renderer: (container: HTMLElement) => void) {
+        this.spatialUIRenderer = renderer;
+    }
+
+    private spatialToolbarRenderer: ((container: HTMLElement) => void) | null = null;
+    setSpatialToolbarRenderer(renderer: (container: HTMLElement) => void) {
+        this.spatialToolbarRenderer = renderer;
+    }
+
+    async spawnBoltTabletOutliner() {
+        const loader = new GLTFLoader();
+        const gltf = await loader.loadAsync('/models/bolt-tablet.glb');
+        const tabletObj = new B3Object(gltf.scene);
+        tabletObj.name = "Bolt Tablet (Outliner)";
+        tabletObj.object.position.set(2, 1, 2);
+        
+        // Find the screen mesh
+        let screenMesh: THREE.Object3D | null = null;
+        gltf.scene.traverse(node => {
+            if (node.name.toLowerCase().includes('screen')) screenMesh = node;
+        });
+
+        if (screenMesh && this.spatialUIRenderer) {
+            const container = document.createElement('div');
+            container.style.width = '400px';
+            container.style.height = '600px';
+            container.style.background = '#111';
+            container.style.overflow = 'hidden';
+            
+            this.spatialUIRenderer(container);
+
+            const cssObj = new CSS2DObject(container);
+            cssObj.position.set(0, 0, 0.05); // Slightly in front of screen
+            (screenMesh as any).add(cssObj);
+        }
+
+        this.addObject(tabletObj);
+        return tabletObj;
+    }
+
+    duplicateObject(idOrObj: string | B3Object) {
+        const obj = typeof idOrObj === 'string' 
+            ? this.objects.find(o => o.id === idOrObj) 
+            : idOrObj;
+            
+        if (!obj) return null;
+
+        const clone = obj.clone();
+        
+        // Offset slightly so it's visible
+        clone.object.position.add(new THREE.Vector3(1, 0, 1));
+        if (clone.body) {
+            clone.body.position.copy(clone.object.position as any);
+        }
+
+        this.addObject(clone);
+        this.selectObject(clone.id);
+        
+        if (this.network && !clone.isRemote) {
+            this.network.send('spawn', clone.toJSON());
+        }
+
+        return clone;
+    }
 
     // ─── Cut-Scene & Recording State ───────────────────────────
     isRecording: boolean = false;
@@ -652,43 +720,52 @@ self.onmessage = function(e) {
         }
     }
 
-    duplicateObject(id: string) {
-        const source = this.objects.find(o => o.id === id);
-        if (!source) return null;
-
-        const clonedMesh = source.object.clone();
-        const b3obj = new B3Object(clonedMesh);
-        b3obj.name = `${source.name} (Copy)`;
-        b3obj.type = source.type;
-
-        if (source.body) {
-            const body = new CANNON.Body({
-                mass: source.body.mass,
-                shape: source.body.shapes[0],
-                position: source.body.position.clone() as any,
-                quaternion: source.body.quaternion.clone() as any
-            });
-            body.position.x += 1;
-            b3obj.body = body;
-        }
-
-        this.addObject(b3obj);
-        this.selectObject(b3obj.id);
-        return b3obj;
-    }
 
     selectObject(id: string | null) {
         if (!id) {
             this.selectedObject = null;
+            this.selectedSubItem = null;
             this.gizmo.detach();
+            this.hideSpatialToolbar();
         } else {
             this.selectedObject = this.objects.find(o => o.id === id) || null;
+            this.selectedSubItem = null; // Clear sub-selection when main object changes
             if (this.selectedObject) {
                 this.gizmo.attach(this.selectedObject.object);
+                this.showSpatialToolbar();
             } else {
                 this.gizmo.detach();
+                this.hideSpatialToolbar();
             }
         }
+        if (this.onSelectionChange) this.onSelectionChange(this.selectedObject);
+    }
+
+    private showSpatialToolbar() {
+        if (!this.selectedObject || !this.spatialToolbarRenderer) return;
+
+        if (!this.spatialToolbar) {
+            const container = document.createElement('div');
+            this.spatialToolbarRenderer(container);
+            this.spatialToolbar = new CSS2DObject(container);
+        }
+
+        // Position toolbar above the object
+        const box = new THREE.Box3().setFromObject(this.selectedObject.object);
+        const height = box.max.y - box.min.y;
+        this.spatialToolbar.position.set(0, height + 0.5, 0);
+        this.selectedObject.object.add(this.spatialToolbar);
+    }
+
+    private hideSpatialToolbar() {
+        if (this.spatialToolbar && this.spatialToolbar.parent) {
+            this.spatialToolbar.parent.remove(this.spatialToolbar);
+        }
+    }
+
+    selectSubItem(parentId: string, type: 'modifier' | 'vertexGroup' | 'logic', id: string) {
+        this.selectedObject = this.objects.find(o => o.id === parentId) || null;
+        this.selectedSubItem = { parentId, type, id };
         if (this.onSelectionChange) this.onSelectionChange(this.selectedObject);
     }
 

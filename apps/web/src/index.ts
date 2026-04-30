@@ -83,6 +83,7 @@ const initEngine = async () => {
         console.log(`B3JS: Miner Execution -> ${active ? 'START' : 'STOP'}`);
     });
 
+    // Sync Telemetry to Sensor and Editor
     minerClient.addListener((stats) => {
         miningSensor.onTelemetry(stats);
         editor.updateMining(stats);

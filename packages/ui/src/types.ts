@@ -6,6 +6,7 @@ export interface B3EditorProps {
 
 export interface PropertiesProps {
     selectedObject: B3Object | null;
+    selectedSubItem?: { parentId: string, type: string, id: string } | null;
     engine: B3Engine | null;
     selectedShaderNode?: any;
     onRender: () => void;
