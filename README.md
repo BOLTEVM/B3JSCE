@@ -23,9 +23,11 @@ From high-fidelity tactical simulations to decentralized virtual worlds, B3JS pr
 - **🦴 Dynamic Skeleton & Procedural IK**: Native extraction of `THREE.Bone` hierarchies from GLTF imports. Logic Bricks like `BoneLookAtActuator` provide dynamic procedural aiming, head tracking, and IK recoil out-of-the-box.
 - **🥽 XR Locomotion Ready**: Hardcoded index limitations resolved with dynamic dominant-handedness detection and patched memory leaks for seamless headset experiences.
 - **🎨 Nodal Material Editor**: A visual-ready shader graph system for creating complex, dynamic materials and effects.
-- **🧩 Advanced Logic Bricks**: Professional-grade behavioral system (Sensors, Controllers, Actuators) with expanded support for Web3 wallets, Mining telemetry, and Combat systems.
+- **🧩 Advanced Logic Bricks**: Professional-grade behavioral system (Sensors, Controllers, Actuators) with expanded support for Web3 wallets, Mining telemetry, and the new **Swap Scale** exchange system.
 - **🛠️ Professional Editor Tools**: 
-    - Full **Undo/Redo** history and state restoration.
+    - **XR Spatial Outliner**: Interactive 3D "Bolt Tablet" for in-scene management, projecting the hierarchical Outliner into 3D space.
+    - **⚡ Spatial Duplication**: Deep-cloning system for 3D assets and logic nodes, complemented by a floating XR toolbar for rapid manipulation.
+    - **Undo/Redo** history and state restoration.
     - Transform Gizmos for precise object manipulation.
     - Specialized panels for Networking, Optimization, Audio, and Inventories.
 
