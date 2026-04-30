@@ -19,6 +19,127 @@ export const Properties = ({
         );
     }
 
+    const markGeometryDirty = (mesh: THREE.Mesh) => {
+        const geometry = mesh.geometry as THREE.BufferGeometry;
+        geometry.attributes.position.needsUpdate = true;
+        geometry.computeBoundingBox();
+        geometry.computeBoundingSphere();
+        geometry.computeVertexNormals();
+        selectedObject.recalculatePhysicsBody();
+        onRender();
+    };
+
+    const parseIndices = (value: string) => value
+        .split(/[\s,]+/)
+        .map((part) => parseInt(part, 10))
+        .filter((n) => Number.isFinite(n) && n >= 0);
+
+    const renderVectorEditor = (label: string, vector: THREE.Vector3, onChange?: () => void) => (
+        <div class="prop-row">
+            <div class="prop-label">{label}</div>
+            <div class="prop-grid">
+                {(['x', 'y', 'z'] as const).map((axis) => (
+                    <input
+                        type="number"
+                        step="0.01"
+                        value={vector[axis].toString()}
+                        onInput={(e: any) => {
+                            const v = parseFloat(e.target.value);
+                            if (!isNaN(v)) {
+                                vector[axis] = v;
+                                onChange && onChange();
+                                onRender();
+                            }
+                        }}
+                    />
+                ))}
+            </div>
+        </div>
+    );
+
+    const renderObjectNodeInspector = (node: any) => {
+        const object = node.object as THREE.Object3D;
+        const mesh = object instanceof THREE.Mesh ? object : null;
+        const geometry = mesh?.geometry as THREE.BufferGeometry | undefined;
+        const position = geometry?.getAttribute('position') as THREE.BufferAttribute | undefined;
+        const normal = geometry?.getAttribute('normal') as THREE.BufferAttribute | undefined;
+        const uv = geometry?.getAttribute('uv') as THREE.BufferAttribute | undefined;
+        const vertexCount = position?.count || 0;
+        const userDataRows = Object.entries(object.userData || {})
+            .filter(([key]) => key !== 'b3obj');
+
+        return (
+            <div class="sub-inspector">
+                <div class="sub-header">
+                    <span style="color: #facc15;">● {node.name}</span>
+                    <span class="sub-pill">{node.type.toUpperCase()}</span>
+                </div>
+                <div class="prop-row">
+                    <div class="prop-label">Name</div>
+                    <input type="text" value={object.name} onInput={(e: any) => { object.name = e.target.value; node.name = e.target.value; onRender(); }} />
+                </div>
+                <div class="prop-row">
+                    <div class="prop-label">Visible</div>
+                    <input type="checkbox" checked={object.visible} onChange={(e: any) => { object.visible = e.target.checked; onRender(); }} />
+                </div>
+                {renderVectorEditor('Position', object.position)}
+                {renderVectorEditor('Rotation', object.rotation as any)}
+                {renderVectorEditor('Scale', object.scale)}
+
+                {mesh && geometry && (
+                    <div>
+                        <div class="section-title" style="margin-top: 12px;">Geometry</div>
+                        <div class="metric-grid">
+                            <div><span>Vertices</span><strong>{vertexCount}</strong></div>
+                            <div><span>Indexed</span><strong>{geometry.index ? 'Yes' : 'No'}</strong></div>
+                            <div><span>Normals</span><strong>{normal ? 'Yes' : 'No'}</strong></div>
+                            <div><span>UVs</span><strong>{uv ? 'Yes' : 'No'}</strong></div>
+                        </div>
+                        {position && vertexCount > 0 && (
+                            <div class="vertex-editor">
+                                <div style="font-size: 9px; color: #888; margin-bottom: 6px;">First vertex position</div>
+                                <div class="prop-grid">
+                                    {(['x', 'y', 'z'] as const).map((axis, i) => (
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={position.getComponent(0, i).toString()}
+                                            onInput={(e: any) => {
+                                                const v = parseFloat(e.target.value);
+                                                if (!isNaN(v)) {
+                                                    position.setComponent(0, i, v);
+                                                    markGeometryDirty(mesh);
+                                                }
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {userDataRows.length > 0 && (
+                    <div>
+                        <div class="section-title" style="margin-top: 12px;">Metadata</div>
+                        {userDataRows.map(([key, value]: any) => (
+                            <div class="prop-row">
+                                <div class="prop-label">{key}</div>
+                                {typeof value === 'number' ? (
+                                    <input type="number" value={value.toString()} onInput={(e: any) => { object.userData[key] = parseFloat(e.target.value); onRender(); }} />
+                                ) : typeof value === 'boolean' ? (
+                                    <input type="checkbox" checked={value} onChange={(e: any) => { object.userData[key] = e.target.checked; onRender(); }} />
+                                ) : (
+                                    <input type="text" value={String(value)} onInput={(e: any) => { object.userData[key] = e.target.value; onRender(); }} />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
     const renderSubItemInspector = () => {
         if (!selectedSubItem) return null;
 
@@ -27,6 +148,7 @@ export const Properties = ({
         if (type === 'modifier') {
             const modifier = selectedObject.modifiers.find((m: any) => m.id === id);
             if (!modifier) return null;
+            const modifierPropertyRows = Object.entries(modifier.properties || {});
 
             return (
                 <div class="sub-inspector">
@@ -35,11 +157,15 @@ export const Properties = ({
                         <input type="checkbox" checked={modifier.enabled} onChange={(e: any) => { modifier.enabled = e.target.checked; onRender(); }} />
                     </div>
                     <div class="prop-row">
-                        <div class="prop-label">Type</div>
-                        <div style="font-size: 10px; color: #888;">{modifier.type}</div>
+                        <div class="prop-label">Name</div>
+                        <input type="text" value={modifier.name} onInput={(e: any) => { modifier.name = e.target.value; onRender(); }} />
                     </div>
-                    {Object.entries(modifier.properties).map(([key, value]: any) => (
-                        <div class="prop-row" key={key}>
+                    <div class="prop-row">
+                        <div class="prop-label">Type</div>
+                        <input type="text" value={modifier.type} onInput={(e: any) => { modifier.type = e.target.value; onRender(); }} />
+                    </div>
+                    {modifierPropertyRows.map(([key, value]: any) => (
+                        <div class="prop-row">
                             <div class="prop-label">{key}</div>
                             {typeof value === 'number' ? (
                                 <input type="number" value={value.toString()} onInput={(e: any) => { modifier.properties[key] = parseFloat(e.target.value); onRender(); }} />
@@ -50,6 +176,14 @@ export const Properties = ({
                             )}
                         </div>
                     ))}
+                    <div style="display: flex; gap: 6px; margin-top: 8px;">
+                        <button class="mini-btn" onClick={() => { modifier.properties = { ...(modifier.properties || {}), value: 1 }; onRender(); }}>+ Property</button>
+                        <button class="mini-btn danger" onClick={() => {
+                            selectedObject.modifiers = selectedObject.modifiers.filter((m: any) => m.id !== modifier.id);
+                            engine.selectedSubItem = null;
+                            onRender();
+                        }}>Remove</button>
+                    </div>
                     <div style="font-size: 8px; color: #555; margin-top: 8px;">ID: {modifier.id}</div>
                 </div>
             );
@@ -65,11 +199,26 @@ export const Properties = ({
                         <span style="color: #34d399;">🧬 {group.name}</span>
                     </div>
                     <div class="prop-row">
+                        <div class="prop-label">Name</div>
+                        <input type="text" value={group.name} onInput={(e: any) => { group.name = e.target.value; onRender(); }} />
+                    </div>
+                    <div class="prop-row">
                         <div class="prop-label">Vertices</div>
                         <div style="font-size: 10px; color: #888;">{group.indices.length} indices</div>
                     </div>
-                    <div style="margin-top: 10px; opacity: 0.5; font-size: 9px; text-align: center;">
-                        Vertex weights are currently read-only.
+                    <textarea
+                        class="indices-editor"
+                        onInput={(e: any) => { group.indices = parseIndices(e.target.value); onRender(); }}
+                    >{group.indices.join(', ')}</textarea>
+                    <div style="display: flex; gap: 6px; margin-top: 8px;">
+                        <button class="mini-btn" onClick={() => {
+                            const meshes: THREE.Mesh[] = [];
+                            selectedObject.object.traverse((child) => { if (child instanceof THREE.Mesh) meshes.push(child); });
+                            const count = ((meshes[0]?.geometry as THREE.BufferGeometry | undefined)?.getAttribute('position') as THREE.BufferAttribute | undefined)?.count || 0;
+                            group.indices = Array.from({ length: count }, (_, i) => i);
+                            onRender();
+                        }}>All</button>
+                        <button class="mini-btn" onClick={() => { group.indices = []; onRender(); }}>Clear</button>
                     </div>
                 </div>
             );
@@ -79,33 +228,7 @@ export const Properties = ({
             const node = selectedObject.logicNodes.find((ln: any) => ln.name === id);
             if (!node) return null;
 
-            return (
-                <div class="sub-inspector">
-                    <div class="sub-header">
-                        <span style="color: #facc15;">● {node.name}</span>
-                    </div>
-                    <div class="prop-row">
-                        <div class="prop-label">Type</div>
-                        <div style="font-size: 10px; color: #888;">{node.type.toUpperCase()}</div>
-                    </div>
-                    {node.type === 'collider' && (
-                        <>
-                            <div class="prop-row">
-                                <div class="prop-label">Physics Type</div>
-                                <select onInput={(e: any) => { /* TODO: Change physics type */ }}>
-                                    <option value="box">Box</option>
-                                    <option value="sphere">Sphere</option>
-                                    <option value="mesh">Mesh (Trimesh)</option>
-                                </select>
-                            </div>
-                            <div class="prop-row">
-                                <div class="prop-label">Mass</div>
-                                <input type="number" value="1.0" />
-                            </div>
-                        </>
-                    )}
-                </div>
-            );
+            return renderObjectNodeInspector(node);
         }
 
         return null;
@@ -132,6 +255,65 @@ export const Properties = ({
                     border-bottom: 1px solid #333;
                     padding-bottom: 8px;
                 }
+                .sub-pill {
+                    font-size: 8px;
+                    letter-spacing: 0.8px;
+                    color: #111;
+                    background: #facc15;
+                    padding: 2px 6px;
+                    border-radius: 3px;
+                    font-weight: 800;
+                }
+                .metric-grid {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 6px;
+                    margin: 8px 0;
+                }
+                .metric-grid > div {
+                    background: #111;
+                    border: 1px solid #2a2a2a;
+                    border-radius: 4px;
+                    padding: 6px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    font-size: 9px;
+                }
+                .metric-grid span { color: #777; }
+                .metric-grid strong { color: #ddd; }
+                .vertex-editor {
+                    background: #111;
+                    border: 1px solid #2a2a2a;
+                    border-radius: 4px;
+                    padding: 8px;
+                    margin-top: 8px;
+                }
+                .indices-editor {
+                    width: 100%;
+                    min-height: 82px;
+                    box-sizing: border-box;
+                    background: #111;
+                    color: #cfcfcf;
+                    border: 1px solid #333;
+                    border-radius: 4px;
+                    padding: 8px;
+                    font-family: monospace;
+                    font-size: 9px;
+                    resize: vertical;
+                }
+                .mini-btn {
+                    flex: 1;
+                    background: #2a2a2a;
+                    border: 1px solid #444;
+                    color: #ddd;
+                    border-radius: 4px;
+                    padding: 5px 8px;
+                    font-size: 9px;
+                    cursor: pointer;
+                }
+                .mini-btn:hover { background: #333; color: #fff; }
+                .mini-btn.danger { border-color: #7f1d1d; color: #fca5a5; }
             `}</style>
             
             <div style="font-size: 14px; font-weight: bold; margin-bottom: 15px; color: #e68523; display: flex; align-items: center; gap: 8px;">
@@ -140,6 +322,30 @@ export const Properties = ({
 
             {/* Sub-Item Inspector */}
             {renderSubItemInspector()}
+
+            <div class="section-title">Mesh Data</div>
+            <div style="display: flex; gap: 6px; margin-bottom: 10px;">
+                <button class="mini-btn" onClick={() => {
+                    const meshes: THREE.Mesh[] = [];
+                    selectedObject.object.traverse((child) => { if (child instanceof THREE.Mesh) meshes.push(child); });
+                    const count = ((meshes[0]?.geometry as THREE.BufferGeometry | undefined)?.getAttribute('position') as THREE.BufferAttribute | undefined)?.count || 0;
+                    selectedObject.vertexGroups.push({
+                        name: `Vertex Group ${selectedObject.vertexGroups.length + 1}`,
+                        indices: count > 0 ? Array.from({ length: Math.min(count, 16) }, (_, i) => i) : []
+                    });
+                    onRender();
+                }}>+ Vertex Group</button>
+                <button class="mini-btn" onClick={() => {
+                    selectedObject.modifiers.push({
+                        id: `modifier-${Date.now()}`,
+                        name: `Modifier ${selectedObject.modifiers.length + 1}`,
+                        type: 'custom',
+                        enabled: true,
+                        properties: { strength: 1 }
+                    });
+                    onRender();
+                }}>+ Modifier</button>
+            </div>
 
             {/* Shader Node Inspector */}
             {selectedShaderNode && (

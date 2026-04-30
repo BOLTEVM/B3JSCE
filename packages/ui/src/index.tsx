@@ -873,7 +873,7 @@ export class B3Editor extends HTMLElement {
                             selectedObjectId: this.selectedObject?.id,
                             selectedSubItem: (this.engine as any)?.selectedSubItem,
                             onSelect: (id: string) => this.engine?.selectObject(id),
-                            onSelectSubItem: (pId: string, type: any, id: string) => (this.engine as any)?.selectedSubItem(pId, type, id),
+                            onSelectSubItem: (pId: string, type: any, id: string) => (this.engine as any)?.selectSubItem(pId, type, id),
                             onDelete: (id: string, name: string) => { if(confirm(`Delete ${name}?`)) this.engine?.removeObject(id); }
                         })}
                     </div>

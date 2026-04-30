@@ -33,6 +33,7 @@ export const Outliner = ({
             case 'elevator': return { char: '↕️', color: '#3b82f6', label: 'ELEV' };
             case 'lightcone': return { char: '✨', color: '#f43f5e', label: 'PULSE' };
             case 'collider': return { char: '🧱', color: '#888', label: 'COLL' };
+            case 'mesh': return { char: '▦', color: '#34d399', label: 'MESH' };
             default: return null;
         }
     };
@@ -142,7 +143,6 @@ export const Outliner = ({
                             <div class="tree-indent logic-group">
                                 {obj.logicNodes.map((ln: any) => {
                                     const info = getLogicIcon(ln.type);
-                                    if (ln.type === 'mesh') return null;
                                     const isLnSelected = selectedSubItem?.parentId === obj.id && selectedSubItem?.type === 'logic' && selectedSubItem?.id === ln.name;
                                     return (
                                         <div class={`tree-item sub-node logic-node ${isLnSelected ? 'selected' : ''}`}

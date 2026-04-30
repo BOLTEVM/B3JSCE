@@ -263,6 +263,7 @@ export class B3Object {
      */
     public extractMetadata() {
         this.snappoints.clear();
+        this.logicNodes = [];
         const foundSnaps: string[] = [];
         const foundColliders: string[] = [];
 
