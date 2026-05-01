@@ -1,6 +1,6 @@
 import * as webjsx from 'webjsx';
 import * as THREE from 'three';
-import { B3Engine, B3Object, Sensor, Controller, Actuator, KeyboardSensor, AndController, MotionActuator, PIN_COLORS, createSwapScaleTemplate } from '@b3js/engine';
+import { B3Engine, B3Object, Sensor, Controller, Actuator, KeyboardSensor, AndController, MotionActuator, createSwapScaleTemplate } from '@b3js/engine';
 import { selectObject as storeSelectObject } from './store/selectionStore';
 import { getActiveScheme } from './store/colorScheme';
 
@@ -19,6 +19,42 @@ type ComponentFn = (props: any) => any;
 /**
  * Industry-Standard B3JS Engine Editor
  */
+const PIN_COLORS = {
+    'exec': '#ffffff',
+    'number': '#f6ad55',
+    'vector3': '#a78bfa',
+    'quaternion': '#f472b6',
+    'boolean': '#4ade80',
+    'string': '#60a5fa',
+    'geometry': '#10b981',
+    'object': '#fbbf24',
+    'any': '#94a3b8',
+    // Shader Types
+    'float': '#94a3b8',
+    'vec2': '#a855f7',
+    'vec3': '#eab308',
+    'color': '#eab308',
+    'vec4': '#ec4899'
+};
+
+const CATEGORY_COLORS: Record<string, string> = {
+    'Event': '#9b2c2c',
+    'Logic': '#22543d',
+    'Math': '#744210',
+    'Variable': '#44337a',
+    'Action': '#2a4365',
+    'Web3': '#2d3748',
+    'Physics': '#285e61',
+    // Shader Categories
+    'Geometry': '#4c1d95',
+    'Input': '#4c1d95',
+    'Texture': '#7c2d12',
+    'Converter': '#164e63',
+    'Shader': '#14532d',
+    'Output': '#7f1d1d',
+    'Default': '#1a202c'
+};
+
 export class B3Editor extends HTMLElement {
     private engine: B3Engine | null = null;
     private selectedObject: B3Object | null = null;
@@ -118,12 +154,15 @@ export class B3Editor extends HTMLElement {
     }
 
     private renderNode(node: any, type: string) {
-        let title = node.constructor.name;
-        if (title === 'KeyboardSensor') title = (node as any).targetKey;
-        if (title === 'ShaderNode') title = (node as any).getTypeName();
+        const info = (node.constructor as any).getNodeInfo ? (node.constructor as any).getNodeInfo() : { label: node.constructor.name, category: 'Default', icon: '📦', color: '#888' };
+        let title = info.label;
+        if (node.constructor.name === 'KeyboardSensor') title = (node as any).targetKey || 'Key';
+
+        const headerColor = CATEGORY_COLORS[info.category] || CATEGORY_COLORS['Default'];
 
         const onPinMouseDown = (e: MouseEvent, side: 'in' | 'out', pinName?: string) => {
             e.stopPropagation();
+            e.preventDefault();
             
             // Drag-to-Break Logic
             if (side === 'in') {
@@ -154,13 +193,31 @@ export class B3Editor extends HTMLElement {
         };
 
         const onPinMouseUp = (e: MouseEvent, side: 'in' | 'out', pinName?: string) => {
+            e.stopPropagation();
+            e.preventDefault();
             if (!this.isDraggingWire || !this.wireSource) return;
             const src = this.wireSource;
             
             // VALDIATION & CONNECTION
             if (src.side === 'out' && side === 'in') {
-                if (src.type === 'sensor' && type === 'controller') node.addSensor(src.node);
-                if (src.type === 'controller' && type === 'actuator') src.node.addActuator(node);
+                const srcPin = src.pinName && src.node.outputs?.find((p: any) => p.id === src.pinName);
+                const targetPin = pinName && node.inputs?.find((p: any) => p.id === pinName);
+
+                if (srcPin && targetPin) {
+                    const compatible = srcPin.dataType === targetPin.dataType
+                        || srcPin.dataType === 'any'
+                        || targetPin.dataType === 'any';
+
+                    if (compatible && !targetPin.connectedTo?.includes(srcPin.id)) {
+                        targetPin.connectedTo = targetPin.connectedTo || [];
+                        srcPin.connectedTo = srcPin.connectedTo || [];
+                        targetPin.connectedTo.push(srcPin.id);
+                        srcPin.connectedTo.push(targetPin.id);
+                    }
+                } else {
+                    if (src.type === 'sensor' && type === 'controller') node.addSensor(src.node);
+                    if (src.type === 'controller' && type === 'actuator') src.node.addActuator(node);
+                }
                 
                 if (src.type === 'shader' && type === 'shader' && pinName && src.pinName) {
                     node.inputs.set(pinName, { nodeId: src.node.id, outputName: src.pinName });
@@ -174,53 +231,52 @@ export class B3Editor extends HTMLElement {
 
         return (
             <div class={`node-card ${this.selectedShaderNode?.id === node.id ? 'node-selected' : ''}`} 
-                 style={`left: ${node.guiMetadata.x}px; top: ${node.guiMetadata.y}px;`}
-                 onClick={(e: any) => {
-                     if (type === 'shader') {
-                         e.stopPropagation();
-                         this.selectedShaderNode = node;
-                         this.render();
-                     }
-                 }}>
-                <div class={`node-header node-${type}`} onMouseDown={() => this.isDraggingNode = node.id}>
-                    {title}
+                 style={`left: ${node.guiMetadata.x}px; top: ${node.guiMetadata.y}px; border-color: ${headerColor}88;`}>
+                <div class="node-header" 
+                     style={`background: ${headerColor}; border-bottom: 1px solid rgba(255,255,255,0.1);`}
+                     onMouseDown={(e: any) => { e.stopPropagation(); this.isDraggingNode = node.id; }}>
+                    <span style="margin-right: 6px; opacity: 0.8;">{info.icon}</span>
+                    <span style="flex: 1;">{title}</span>
                 </div>
                 <div class="node-body">
                     {/* Logic Node Pins (V1 Fallback & V2 Typed) */}
                     {(type === 'sensor' || type === 'controller' || type === 'actuator') && node.inputs && node.inputs.length === 0 && node.outputs && node.outputs.length === 0 && (
-                        <>
-                            {type === 'sensor' && <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'out')} style="margin-left: auto;"></div>}
-                            {type === 'controller' && (
-                                <div style="display: flex; justify-content: space-between;">
-                                    <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'in')} onMouseUp={(e: any) => onPinMouseUp(e, 'in')}></div>
-                                    <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'out')}></div>
-                                </div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; min-height: 20px;">
+                            {type !== 'sensor' && (
+                                <div class="pin pin-connected" 
+                                     onMouseDown={(e: any) => onPinMouseDown(e, 'in')} 
+                                     onMouseUp={(e: any) => onPinMouseUp(e, 'in')}
+                                     style="background: #ffffff; border-color: #fff;"></div>
                             )}
-                            {type === 'actuator' && <div class="pin pin-connected" onMouseDown={(e: any) => onPinMouseDown(e, 'in')} onMouseUp={(e: any) => onPinMouseUp(e, 'in')}></div>}
-                        </>
+                            {type !== 'actuator' && (
+                                <div class="pin pin-connected" 
+                                     onMouseDown={(e: any) => onPinMouseDown(e, 'out')}
+                                     style="background: #ffffff; border-color: #fff; margin-left: auto;"></div>
+                            )}
+                        </div>
                     )}
 
                     {/* V2 Logic Node Pins */}
                     {(type === 'sensor' || type === 'controller' || type === 'actuator') && (node.inputs.length > 0 || node.outputs.length > 0) && (
-                        <div style="display: flex; justify-content: space-between; margin-top: 5px;">
-                            <div style="display: flex; flex-direction: column; gap: 6px;">
+                        <div style="display: flex; justify-content: space-between; margin-top: 2px;">
+                            <div style="display: flex; flex-direction: column; gap: 8px;">
                                 {node.inputs.map((p: any) => (
-                                    <div style="display: flex; align-items: center; gap: 4px;">
+                                    <div style="display: flex; align-items: center; gap: 6px;">
                                         <div class={`pin ${p.connectedTo?.length > 0 ? 'pin-connected' : ''}`} 
-                                             style={`background: ${p.connectedTo?.length > 0 ? (PIN_COLORS as any)[p.dataType] || '#888' : '#333'}; border-color: ${(PIN_COLORS as any)[p.dataType] || '#888'};`}
+                                             style={`background: ${p.connectedTo?.length > 0 ? (PIN_COLORS as any)[p.dataType] || '#888' : '#111'}; border-color: ${(PIN_COLORS as any)[p.dataType] || '#444'};`}
                                              onMouseDown={(e: any) => onPinMouseDown(e, 'in', p.id)}
                                              onMouseUp={(e: any) => onPinMouseUp(e, 'in', p.id)}
                                              title={p.dataType}></div>
-                                        <span style="font-size: 9px; color: #aaa;">{p.name} {p.dataType === 'exec' ? '►' : ''}</span>
+                                        <span style={`font-size: 9px; font-weight: 500; color: ${p.connectedTo?.length > 0 ? '#eee' : '#888'};`}>{p.name} {p.dataType === 'exec' ? '►' : ''}</span>
                                     </div>
                                 ))}
                             </div>
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 8px;">
                                 {node.outputs.map((p: any) => (
-                                    <div style="display: flex; align-items: center; gap: 4px;">
-                                        <span style="font-size: 9px; color: #aaa;">{p.dataType === 'exec' ? '►' : ''} {p.name}</span>
+                                    <div style="display: flex; align-items: center; gap: 6px;">
+                                        <span style={`font-size: 9px; font-weight: 500; color: ${p.connectedTo?.length > 0 ? '#eee' : '#888'};`}>{p.dataType === 'exec' ? '►' : ''} {p.name}</span>
                                         <div class={`pin ${p.connectedTo?.length > 0 ? 'pin-connected' : ''}`}
-                                             style={`background: ${p.connectedTo?.length > 0 ? (PIN_COLORS as any)[p.dataType] || '#888' : '#333'}; border-color: ${(PIN_COLORS as any)[p.dataType] || '#888'};`}
+                                             style={`background: ${p.connectedTo?.length > 0 ? (PIN_COLORS as any)[p.dataType] || '#888' : '#111'}; border-color: ${(PIN_COLORS as any)[p.dataType] || '#444'};`}
                                              onMouseDown={(e: any) => onPinMouseDown(e, 'out', p.id)}
                                              title={p.dataType}></div>
                                     </div>
@@ -231,27 +287,62 @@ export class B3Editor extends HTMLElement {
 
                     {/* Shader Node Pins */}
                     {type === 'shader' && (
-                        <div style="display: flex; justify-content: space-between;">
-                            <div style="display: flex; flex-direction: column; gap: 4px;">
-                                {node.getInputPins().map((p: any) => (
-                                    <div style="display: flex; align-items: center; gap: 4px;">
-                                        <div class={`pin ${node.inputs.has(p.name) ? 'pin-connected' : ''}`} 
-                                             onMouseDown={(e: any) => onPinMouseDown(e, 'in', p.name)}
-                                             onMouseUp={(e: any) => onPinMouseUp(e, 'in', p.name)}
-                                             title={p.type}></div>
-                                        <span style="font-size: 8px; color: #888;">{p.name}</span>
-                                    </div>
-                                ))}
+                        <div style="display: flex; flex-direction: column; gap: 8px;">
+                            <div style="display: flex; justify-content: space-between;">
+                                <div style="display: flex; flex-direction: column; gap: 6px;">
+                                    {node.getInputPins().map((p: any) => (
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <div class={`pin ${node.inputs.has(p.name) ? 'pin-connected' : ''}`} 
+                                                 style={`background: ${node.inputs.has(p.name) ? (PIN_COLORS as any)[p.type] || '#888' : '#111'}; border-color: ${(PIN_COLORS as any)[p.type] || '#444'};`}
+                                                 onMouseDown={(e: any) => onPinMouseDown(e, 'in', p.name)}
+                                                 onMouseUp={(e: any) => onPinMouseUp(e, 'in', p.name)}
+                                                 title={p.type}></div>
+                                            <span style={`font-size: 9px; font-weight: 500; color: ${node.inputs.has(p.name) ? '#eee' : '#888'};`}>{p.name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 6px;">
+                                    {node.getOutputPins().map((p: any) => (
+                                        <div style="display: flex; align-items: center; gap: 6px;">
+                                            <span style="font-size: 9px; font-weight: 500; color: #eee;">{p.name}</span>
+                                            <div class="pin pin-connected" 
+                                                 style={`background: ${(PIN_COLORS as any)[p.type] || '#888'}; border-color: ${(PIN_COLORS as any)[p.type] || '#444'};`}
+                                                 onMouseDown={(e: any) => onPinMouseDown(e, 'out', p.name)}
+                                                 title={p.type}></div>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                            <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-                                {node.getOutputPins().map((p: any) => (
-                                    <div style="display: flex; align-items: center; gap: 4px;">
-                                        <span style="font-size: 8px; color: #888;">{p.name}</span>
-                                        <div class="pin pin-connected" 
-                                             onMouseDown={(e: any) => onPinMouseDown(e, 'out', p.name)}
-                                             title={p.type}></div>
+
+                            {/* Inline Controls */}
+                            <div style="margin-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 8px;">
+                                {node.constructor.name === 'ColorNode' && (
+                                    <div style="display: flex; align-items: center; gap: 8px;">
+                                        <input type="color" value={`#${node.color.getHexString()}`} 
+                                               style="width: 100%; height: 20px; border: 1px solid #333; cursor: pointer; background: none; padding: 0;"
+                                               onInput={(e: any) => { node.color.set(e.target.value); this.render(); }} />
                                     </div>
-                                ))}
+                                )}
+                                {node.constructor.name === 'MathNode' && (
+                                    <select style="width: 100%; font-size: 9px; background: #000; border: 1px solid #333; color: #aaa;"
+                                            value={node.operation}
+                                            onChange={(e: any) => { node.operation = e.target.value; this.render(); }}>
+                                        <option value="add">ADD</option>
+                                        <option value="multiply">MULTIPLY</option>
+                                        <option value="sin">SINE</option>
+                                    </select>
+                                )}
+                                {node.constructor.name === 'AudioNode' && (
+                                    <div style="display: flex; flex-direction: column; gap: 2px;">
+                                        <div style="display: flex; justify-content: space-between; font-size: 8px; color: #555;">
+                                            <span>FREQ</span>
+                                            <span>{Math.floor(node.freqIndex)}</span>
+                                        </div>
+                                        <input type="range" min="0" max="127" value={node.freqIndex} 
+                                               style="width: 100%; height: 4px; accent-color: var(--accent);"
+                                               onInput={(e: any) => { node.freqIndex = parseInt(e.target.value); this.render(); }} />
+                                    </div>
+                                )}
                             </div>
                         </div>
                     )}
@@ -260,10 +351,27 @@ export class B3Editor extends HTMLElement {
         );
     }
 
-    private drawBezier(x1: number, y1: number, x2: number, y2: number, color = "#e68523", opacity = "0.6") {
-        const cp1x = x1 + (x2 - x1) / 2;
-        const cp2x = x1 + (x2 - x1) / 2;
-        return <path d={`M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`} stroke={color} stroke-width="2" fill="none" opacity={opacity} />;
+    private drawBezier(x1: number, y1: number, x2: number, y2: number, color = "#ffffff", opacity = "0.8") {
+        const dx = Math.abs(x2 - x1);
+        const horizontalOffset = Math.min(dx / 2, 50);
+        const cp1x = x1 + horizontalOffset;
+        const cp2x = x2 - horizontalOffset;
+        
+        return (
+            <g>
+                <path d={`M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`} 
+                      stroke={color} 
+                      stroke-width="3" 
+                      fill="none" 
+                      opacity={opacity}
+                      style="transition: stroke 0.2s; filter: drop-shadow(0 0 2px rgba(0,0,0,0.5));" />
+                <path d={`M ${x1} ${y1} C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`} 
+                      stroke={color} 
+                      stroke-width="1" 
+                      fill="none" 
+                      opacity={Math.min(parseFloat(opacity) * 1.5, 1)} />
+            </g>
+        );
     }
 
     private renderWires() {
@@ -271,7 +379,7 @@ export class B3Editor extends HTMLElement {
         const paths: any[] = [];
 
         if (this.activeBottomTab === 'logic') {
-            const container = document.getElementById('logic-canvas-container');
+            const container = this.shadowRoot?.getElementById('logic-canvas-container') as HTMLElement | null;
             const rect = container?.getBoundingClientRect();
 
             const allNodes = [
@@ -288,10 +396,10 @@ export class B3Editor extends HTMLElement {
             this.selectedObject.controllers.forEach(c => {
                 if (c.inputs && c.inputs.length > 0) return; // Skip if V2
                 c.sensors.forEach((s: any) => {
-                    paths.push(this.drawBezier(s.guiMetadata.x + 120, s.guiMetadata.y + 20, c.guiMetadata.x, c.guiMetadata.y + 20, wireColorMode === 'custom' ? wireCustomColor : "#00ff88", wireOpacity));
+                    paths.push(this.drawBezier(s.guiMetadata.x + 160, s.guiMetadata.y + 24, c.guiMetadata.x, c.guiMetadata.y + 24, "#ffffff", wireOpacity));
                 });
                 c.actuators.forEach((a: any) => {
-                    paths.push(this.drawBezier(c.guiMetadata.x + 120, c.guiMetadata.y + 20, a.guiMetadata.x, a.guiMetadata.y + 20, wireColorMode === 'custom' ? wireCustomColor : "#00d4ff", wireOpacity));
+                    paths.push(this.drawBezier(c.guiMetadata.x + 160, c.guiMetadata.y + 24, a.guiMetadata.x, a.guiMetadata.y + 24, "#ffffff", wireOpacity));
                 });
             });
 
@@ -305,7 +413,7 @@ export class B3Editor extends HTMLElement {
                             const outIdx = source.outputs.findIndex((p: any) => p.id === srcPinId);
                             if (outIdx !== -1) {
                                 const srcPin = source.outputs[outIdx];
-                                const x1 = source.guiMetadata.x + 140; // width
+                                const x1 = source.guiMetadata.x + 160; // node width
                                 const y1 = source.guiMetadata.y + 35 + (outIdx * 19);
                                 const x2 = target.guiMetadata.x;
                                 const y2 = target.guiMetadata.y + 35 + (inIdx * 19);
@@ -324,8 +432,10 @@ export class B3Editor extends HTMLElement {
             if (this.isDraggingWire && this.wireSource && rect) {
                 const src = this.wireSource.node.guiMetadata;
                 const isOut = this.wireSource.side === 'out';
-                const x1 = isOut ? src.x + 120 : src.x;
-                const y1 = src.y + 70;
+                const sourcePins = isOut ? this.wireSource.node.outputs : this.wireSource.node.inputs;
+                const sourcePinIndex = sourcePins?.findIndex((p: any) => p.id === this.wireSource?.pinName) ?? -1;
+                const x1 = isOut ? src.x + 160 : src.x;
+                const y1 = src.y + 35 + (Math.max(0, sourcePinIndex) * 19);
                 
                 const scrollX = container?.scrollLeft || 0;
                 const scrollY = container?.scrollTop || 0;
@@ -335,51 +445,57 @@ export class B3Editor extends HTMLElement {
                 paths.push(this.drawBezier(x1, y1, mx, my, "#e68523", "0.4"));
             }
         } else if (this.activeBottomTab === 'shader') {
-            const container = document.getElementById('shader-canvas-container');
+            const container = this.shadowRoot?.getElementById('shader-canvas-container') as HTMLElement | null;
             const rect = container?.getBoundingClientRect();
 
             this.selectedObject.materialNodes.forEach(target => {
                 target.inputs.forEach((input, inputName) => {
                     const source = this.selectedObject!.materialNodes.find((n: any) => n.id === input.nodeId);
                     if (source) {
-                        // Calculate pin indices for vertical offset
                         const outPins = source.getOutputPins();
                         const outIdx = outPins.findIndex((p: any) => p.name === input.outputName);
                         const inPins = target.getInputPins();
                         const inIdx = inPins.findIndex((p: any) => p.name === inputName);
 
-                        const x1 = source.guiMetadata.x + 120;
-                        const y1 = source.guiMetadata.y + 45 + (outIdx * 15);
+                        if (outIdx === -1 || inIdx === -1) return;
+
+                        const x1 = source.guiMetadata.x + 160;
+                        const y1 = source.guiMetadata.y + 40 + (outIdx * 20);
                         const x2 = target.guiMetadata.x;
-                        const y2 = target.guiMetadata.y + 45 + (inIdx * 15);
+                        const y2 = target.guiMetadata.y + 40 + (inIdx * 20);
                         
-                        paths.push(this.drawBezier(x1, y1, x2, y2, "#4a9eff", "0.6"));
+                        const pinType = outPins[outIdx].type;
+                        const color = (PIN_COLORS as any)[pinType] || "#4a9eff";
+                        paths.push(this.drawBezier(x1, y1, x2, y2, color, "0.8"));
                     }
                 });
             });
 
-            // ACTIVE DRAG WIRE (Shader)
             if (this.isDraggingWire && this.wireSource && rect) {
                 const src = this.wireSource.node.guiMetadata;
                 const isOut = this.wireSource.side === 'out';
                 
-                // Offset calculation based on pin index
                 let pinOffset = 0;
+                let color = "#4a9eff";
+
                 if (this.wireSource.pinName) {
                     const pins = isOut ? this.wireSource.node.getOutputPins() : this.wireSource.node.getInputPins();
                     const idx = pins.findIndex((p: any) => p.name === this.wireSource?.pinName);
-                    pinOffset = Math.max(0, idx) * 15;
+                    pinOffset = Math.max(0, idx) * 20;
+                    if (idx !== -1) {
+                        color = (PIN_COLORS as any)[pins[idx].type] || color;
+                    }
                 }
 
-                const x1 = isOut ? src.x + 120 : src.x;
-                const y1 = src.y + 45 + pinOffset;
+                const x1 = isOut ? src.x + 160 : src.x;
+                const y1 = src.y + 40 + pinOffset;
                 
                 const scrollX = container?.scrollLeft || 0;
                 const scrollY = container?.scrollTop || 0;
                 const mx = this.wireMousePos.x - rect.left + scrollX;
                 const my = this.wireMousePos.y - rect.top + scrollY;
                 
-                paths.push(this.drawBezier(x1, y1, mx, my, "#4a9eff", "0.4"));
+                paths.push(this.drawBezier(x1, y1, mx, my, color, "0.4"));
             }
         }
         return paths;
@@ -755,14 +871,15 @@ export class B3Editor extends HTMLElement {
 
                     /* Logic Graph Styles */
                     .logic-canvas { width: 4000px; height: 4000px; background-image: radial-gradient(#333 1px, transparent 1px); background-size: 20px 20px; position: relative; }
-                    .node-card { position: absolute; width: 140px; background: #222; border: 1px solid #444; border-radius: 4px; overflow: hidden; box-shadow: 0 4px 10px rgba(0,0,0,0.5); font-size: 10px; cursor: default; }
-                    .node-header { padding: 4px 8px; font-weight: bold; cursor: move; color: #fff; }
-                    .node-sensor { border-top: 2px solid #00ff88; }
-                    .node-controller { border-top: 2px solid var(--accent); }
-                    .node-actuator { border-top: 2px solid #00d4ff; }
-                    .node-body { padding: 8px; }
-                    .pin { width: 10px; height: 10px; border-radius: 50%; background: #444; margin: 4px 0; position: relative; border: 1px solid #666; }
-                    .pin-connected { background: var(--accent); border-color: #fff; }
+                    .node-card { position: absolute; width: 160px; background: rgba(30,30,30,0.85); border: 1px solid #444; border-radius: 8px; overflow: hidden; box-shadow: 0 10px 25px rgba(0,0,0,0.6); font-size: 10px; cursor: default; backdrop-filter: blur(12px); }
+                    .node-header { padding: 8px 12px; font-weight: 700; cursor: move; color: #fff; display: flex; align-items: center; font-size: 11px; letter-spacing: 0.5px; }
+                    .node-sensor { border-top: 1px solid #00ff8888; }
+                    .node-controller { border-top: 1px solid rgba(255,255,255,0.1); }
+                    .node-actuator { border-top: 1px solid #00d4ff88; }
+                    .node-body { padding: 10px 12px; background: rgba(0,0,0,0.2); }
+                    .pin { width: 12px; height: 12px; border-radius: 50%; background: #111; margin: 4px 0; position: relative; border: 2px solid #444; cursor: crosshair; transition: all 0.15s; }
+                    .pin:hover { transform: scale(1.2); border-color: #fff; }
+                    .pin-connected { border-width: 2px; }
                     .logic-brick { background: #333; border: 1px solid #444; margin: 4px; padding: 6px; border-radius: 4px; border-left: 3px solid var(--accent); position: relative; }
                     .delete-btn { position: absolute; right: 4px; top: 4px; cursor: pointer; opacity: 0.5; font-size: 10px; }
                     .delete-btn:hover { opacity: 1; color: #ff3366; }

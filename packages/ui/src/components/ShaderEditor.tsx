@@ -1,24 +1,61 @@
 /** @jsx webjsx.h */
 import * as webjsx from 'webjsx';
 
+let searchFilter = '';
+let openCategory: string | null = null;
+let isPinned = false;
+let isVisible = false;
+let palettePos = { x: 100, y: 100 };
+let isDraggingPalette = false;
+let dragStartPos = { x: 0, y: 0 };
+
 export const ShaderEditor = ({
     selectedObject,
     engine,
+    onRender,
     renderWires,
     renderNode
 }: any) => {
-    // Context Menu State
+    
     const toggleContextMenu = (e: MouseEvent, show: boolean) => {
-        const menu = document.getElementById('shader-context-menu');
-        if (!menu) return;
         if (show) {
             e.preventDefault();
-            menu.style.display = 'block';
-            menu.style.left = `${e.clientX}px`;
-            menu.style.top = `${e.clientY}px`;
+            isVisible = true;
+            if (!isPinned) {
+                palettePos = { x: e.clientX, y: e.clientY };
+            }
+            const searchInput = document.getElementById('shader-search') as HTMLInputElement;
+            if (searchInput) {
+                searchInput.value = '';
+                searchFilter = '';
+                setTimeout(() => searchInput.focus(), 10);
+            }
         } else {
-            menu.style.display = 'none';
+            isVisible = false;
         }
+        if (onRender) onRender();
+    };
+
+    const onPaletteMouseDown = (e: MouseEvent) => {
+        if (isPinned) return;
+        const target = e.target as HTMLElement;
+        if (target.closest('button') || target.closest('input')) return;
+        isDraggingPalette = true;
+        dragStartPos = { x: e.clientX - palettePos.x, y: e.clientY - palettePos.y };
+        window.addEventListener('mousemove', onPaletteMouseMove);
+        window.addEventListener('mouseup', onPaletteMouseUp);
+    };
+
+    const onPaletteMouseMove = (e: MouseEvent) => {
+        if (!isDraggingPalette) return;
+        palettePos = { x: e.clientX - dragStartPos.x, y: e.clientY - dragStartPos.y };
+        if (onRender) onRender();
+    };
+
+    const onPaletteMouseUp = () => {
+        isDraggingPalette = false;
+        window.removeEventListener('mousemove', onPaletteMouseMove);
+        window.removeEventListener('mouseup', onPaletteMouseUp);
     };
 
     const addNode = (nodeClass: any, params: any[] = []) => {
@@ -28,66 +65,135 @@ export const ShaderEditor = ({
         toggleContextMenu({} as any, false);
     };
 
+    const SHADER_NODES = [
+        (engine.constructor as any).ColorNode,
+        (engine.constructor as any).PositionNode,
+        (engine.constructor as any).TimeNode,
+        (engine.constructor as any).AudioNode,
+        (engine.constructor as any).NoiseNode,
+        (engine.constructor as any).MathNode,
+        (engine.constructor as any).MixNode,
+        (engine.constructor as any).Vector3Node,
+        (engine.constructor as any).OutputNode
+    ].filter(Boolean);
+
+    const catalog = SHADER_NODES.map(ctor => ({ ctor, info: (ctor as any).getNodeInfo() }));
+    const filtered = catalog.filter(n => 
+        n.info.label.toLowerCase().includes(searchFilter) || 
+        n.info.description.toLowerCase().includes(searchFilter) ||
+        n.info.category.toLowerCase().includes(searchFilter)
+    );
+    const categories = Array.from(new Set(filtered.map(n => n.info.category)));
+
     return (
-        <div style="width: 100%; height: 100%; display: flex; flex-direction: column;"
+        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; background: #111; position: relative;"
             onContextMenu={(e: any) => toggleContextMenu(e, true)}
             onClick={() => toggleContextMenu({} as any, false)}>
-            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Nodal Shader Editor</span>
+            
+            <div class="panel-header" style="display: flex; justify-content: space-between; align-items: center; background: #1a1a1a; border-bottom: 1px solid #000;">
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span style="font-weight: 800; letter-spacing: 1px; color: #888;">NODAL SHADER EDITOR</span>
+                </div>
                 <div style="display: flex; gap: 8px;">
-                    <button style="font-size: 9px; cursor: pointer;" onClick={() => {
-                        const n = new (engine.constructor as any).ColorNode();
-                        selectedObject.materialNodes.push(n);
-                    }}>+ Color</button>
-                    <button style="font-size: 9px; cursor: pointer;" onClick={() => {
-                        const n = new (engine.constructor as any).PositionNode();
-                        selectedObject.materialNodes.push(n);
-                    }}>+ Pos</button>
-                    <button style="font-size: 9px; cursor: pointer;" onClick={() => {
-                        const n = new (engine.constructor as any).TimeNode();
-                        selectedObject.materialNodes.push(n);
-                    }}>+ Time</button>
-                    <button style="font-size: 9px; cursor: pointer;" onClick={() => {
-                        const n = new (engine.constructor as any).MathNode();
-                        selectedObject.materialNodes.push(n);
-                    }}>+ Math</button>
-                    <button style="font-size: 9px; cursor: pointer;" onClick={() => {
-                        const n = new (engine.constructor as any).AudioNode();
-                        selectedObject.materialNodes.push(n);
-                    }}>+ Audio</button>
-                    <button style="font-size: 9px; cursor: pointer; background: #e68523;" onClick={() => {
-                        selectedObject.recompileMaterial();
-                    }}>Compile & Apply</button>
+                    <button style="font-size: 9px; cursor: pointer; padding: 4px 10px; background: #333; border: 1px solid #444; border-radius: 4px; color: #fff;" 
+                            onClick={() => selectedObject?.recompileMaterial()}>
+                        🏗️ Compile & Apply
+                    </button>
                 </div>
             </div>
+
             <div style="flex: 1; overflow: scroll; position: relative;" id="shader-canvas-container"
                 onDblClick={(e: any) => toggleContextMenu(e, true)}>
-                <div class="shader-canvas" style="width: 2000px; height: 2000px;">
-                    <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+                <div class="shader-canvas" style="width: 4000px; height: 4000px; background-image: radial-gradient(#222 1px, transparent 1px); background-size: 20px 20px;">
+                    <svg style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0;">
                         {renderWires()}
                     </svg>
                     {selectedObject && selectedObject.materialNodes.map((n: any) => renderNode(n, 'shader'))}
                 </div>
             </div>
 
-            {/* Right-Click / Double-Click Modal Menu */}
-            <div id="shader-context-menu" style="display: none; position: fixed; background: #1a1a1a; border: 1px solid #444; border-radius: 6px; z-index: 1000; padding: 10px; min-width: 180px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); backdrop-filter: blur(5px);">
-                <div style="font-size: 9px; color: #666; font-weight: bold; margin-bottom: 8px; text-transform: uppercase;">Inputs</div>
-                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).ColorNode)}>🎨 Color Node</div>
-                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).PositionNode)}>📍 Position Node</div>
-                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).TimeNode)}>🕒 Time Node</div>
-                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).AudioNode)}>🔊 Audio Node</div>
+            {/* Searchable Shader Node Palette */}
+            <div id="shader-context-menu" 
+                 onClick={(e: any) => e.stopPropagation()}
+                 style={`
+                    display: ${isVisible || isPinned ? 'flex' : 'none'};
+                    position: ${isPinned ? 'absolute' : 'fixed'};
+                    left: ${isPinned ? '10px' : palettePos.x + 'px'};
+                    top: ${isPinned ? '10px' : palettePos.y + 'px'};
+                    bottom: ${isPinned ? '10px' : 'auto'};
+                    background: rgba(15,15,15,0.92);
+                    border: 1px solid #333;
+                    border-radius: 12px;
+                    z-index: 1000;
+                    width: 280px;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.9);
+                    backdrop-filter: blur(30px);
+                    overflow: hidden;
+                    display: flex;
+                    flex-direction: column;
+                    transition: ${isDraggingPalette ? 'none' : 'opacity 0.2s, transform 0.2s'};
+                    transform-origin: top left;
+                 `}>
+                
+                <div 
+                    onMouseDown={onPaletteMouseDown}
+                    style={`padding: 14px; border-bottom: 1px solid #222; background: rgba(255,255,255,0.03); display: flex; align-items: center; gap: 10px; cursor: ${isPinned ? 'default' : 'move'};`}>
+                    <input id="shader-search" type="text" placeholder="Search nodes..." 
+                           style="flex: 1; padding: 8px 10px; background: #000; border: 1px solid #333; color: #fff; font-size: 11px; border-radius: 6px; outline: none;"
+                           onInput={(e: any) => {
+                               searchFilter = e.target.value.toLowerCase();
+                               if (onRender) onRender();
+                           }} />
+                    <button 
+                        title={isPinned ? "Unpin Palette" : "Pin Palette"}
+                        onMouseDown={(e: any) => e.stopPropagation()}
+                        onClick={(e: any) => { e.stopPropagation(); isPinned = !isPinned; if (onRender) onRender(); }}
+                        style={`background: ${isPinned ? '#3b82f6' : '#222'}; border: none; color: #fff; padding: 6px; border-radius: 4px; cursor: pointer; font-size: 12px; transition: background 0.2s;`}>
+                        {isPinned ? '📍' : '📌'}
+                    </button>
+                    {!isPinned && (
+                        <button onClick={() => toggleContextMenu({} as any, false)} style="background: none; border: none; color: #666; cursor: pointer; font-size: 14px;">✕</button>
+                    )}
+                </div>
 
-                <div style="font-size: 9px; color: #666; font-weight: bold; margin: 12px 0 8px 0; text-transform: uppercase;">Generators</div>
-                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).NoiseNode)}>☁️ Simplex Noise</div>
-
-                <div style="font-size: 9px; color: #666; font-weight: bold; margin: 12px 0 8px 0; text-transform: uppercase;">Math & Composition</div>
-                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).MathNode)}>➕ Math Operation</div>
-                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).MixNode)}>🌓 Mix / Lerp</div>
-                <div class="menu-item" style="font-size: 11px; padding: 6px; border-radius: 3px; cursor: pointer;" onClick={() => addNode((engine.constructor as any).Vector3Node)}>🧱 Vector3 Compose</div>
-
-                <div style="margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;">
-                    <div class="menu-item" style="font-size: 11px; padding: 6px; color: #e68523; font-weight: bold;" onClick={() => { selectedObject.recompileMaterial(); toggleContextMenu({} as any, false); }}>🏗️ Compile & Apply</div>
+                <div style="flex: 1; overflow-y: auto; padding: 8px; scrollbar-width: thin;">
+                    {filtered.length === 0 && <div style="color: #444; font-size: 11px; text-align: center; padding: 40px;">No matching nodes</div>}
+                    
+                    {categories.map(cat => (
+                        <div style="margin-bottom: 8px;">
+                            <div 
+                                style={`font-size: 10px; color: #555; font-weight: 800; margin-bottom: 6px; padding: 4px 6px; text-transform: uppercase; letter-spacing: 1px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; border-radius: 4px; background: rgba(255,255,255,0.03);`}
+                                onClick={() => {
+                                    openCategory = openCategory === cat ? null : cat;
+                                    if (onRender) onRender();
+                                }}
+                            >
+                                <span>{cat}</span>
+                                <span style="font-size: 8px; opacity: 0.5;">{openCategory === cat ? '▼' : '►'}</span>
+                            </div>
+                            
+                            {(openCategory === cat || searchFilter.length > 0) && (
+                                <div style="display: flex; flex-direction: column; gap: 2px;">
+                                    {filtered.filter(n => n.info.category === cat).map(n => (
+                                        <div class="menu-item" 
+                                             style="padding: 8px 10px; border-radius: 6px; cursor: pointer; display: flex; align-items: flex-start; gap: 10px; transition: background 0.1s;" 
+                                             onClick={() => addNode(n.ctor)}>
+                                            <div style={`background: ${n.info.color}22; color: ${n.info.color}; width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 16px; border: 1px solid ${n.info.color}44;`}>
+                                                {n.info.icon}
+                                            </div>
+                                            <div style="display: flex; flex-direction: column; gap: 1px; overflow: hidden;">
+                                                <span style="color: #eee; font-weight: 600; font-size: 11px;">{n.info.label}</span>
+                                                <span style="font-size: 9px; color: #666; line-height: 1.2; white-space: nowrap; text-overflow: ellipsis; overflow: hidden;">{n.info.description}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+                <div style="padding: 10px; font-size: 8px; color: #444; border-top: 1px solid #222; text-align: center; background: rgba(0,0,0,0.2);">
+                    Drag into canvas to spawn (Future Build)
                 </div>
             </div>
         </div>

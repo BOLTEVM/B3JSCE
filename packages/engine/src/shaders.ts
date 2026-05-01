@@ -62,6 +62,10 @@ export class ColorNode extends ShaderNode {
         generator.addMainBody(`vec3 ${varName} = vec3(${this.color.r}, ${this.color.g}, ${this.color.b});`);
         return varName;
     }
+
+    static getNodeInfo() {
+        return { label: 'Color', category: 'Input', icon: '🎨', color: '#6366f1', description: 'Constant RGB color input' };
+    }
 }
 
 export class PositionNode extends ShaderNode {
@@ -81,6 +85,10 @@ export class PositionNode extends ShaderNode {
         if (context === 'vertex') return 'position';
         return 'vPosition'; // Assumes vertex shader passes vPosition
     }
+
+    static getNodeInfo() {
+        return { label: 'Position', category: 'Geometry', icon: '📍', color: '#6366f1', description: 'Vertex/Fragment world position' };
+    }
 }
 
 export class TimeNode extends ShaderNode {
@@ -99,6 +107,10 @@ export class TimeNode extends ShaderNode {
     generateCode(context: ShaderContext, generator: ShaderMaterialGenerator): string {
         generator.addUniform('uTime', 'float');
         return 'uTime';
+    }
+
+    static getNodeInfo() {
+        return { label: 'Time', category: 'Input', icon: '🕒', color: '#6366f1', description: 'Engine elapsed time in seconds' };
     }
 }
 
@@ -134,6 +146,10 @@ export class MathNode extends ShaderNode {
         
         return outVar;
     }
+
+    static getNodeInfo() {
+        return { label: 'Math', category: 'Converter', icon: '➕', color: '#06b6d4', description: 'Basic arithmetic operations' };
+    }
 }
 
 export class AudioNode extends ShaderNode {
@@ -155,6 +171,10 @@ export class AudioNode extends ShaderNode {
         generator.addUniform('uAudioData[128]', 'float');
         const idx = Math.max(0, Math.min(127, Math.floor(this.freqIndex)));
         return `uAudioData[${idx}] / 255.0`;
+    }
+
+    static getNodeInfo() {
+        return { label: 'Audio', category: 'Input', icon: '🔊', color: '#6366f1', description: 'FFT audio spectrum data' };
     }
 }
 
@@ -234,6 +254,10 @@ export class NoiseNode extends ShaderNode {
         generator.addMainBody(`float ${varName} = snoise(${posInput} * ${scaleInput});`);
         return varName;
     }
+
+    static getNodeInfo() {
+        return { label: 'Noise', category: 'Texture', icon: '☁️', color: '#f97316', description: '3D Simplex noise generator' };
+    }
 }
 
 /**
@@ -261,6 +285,10 @@ export class MixNode extends ShaderNode {
         generator.addMainBody(`vec3 ${varName} = mix(${a}, ${b}, ${t});`);
         return varName;
     }
+
+    static getNodeInfo() {
+        return { label: 'Mix', category: 'Converter', icon: '🌓', color: '#06b6d4', description: 'Linear interpolation between two inputs' };
+    }
 }
 
 /**
@@ -287,6 +315,10 @@ export class Vector3Node extends ShaderNode {
         
         generator.addMainBody(`vec3 ${varName} = vec3(${x}, ${y}, ${z});`);
         return varName;
+    }
+
+    static getNodeInfo() {
+        return { label: 'Vector3', category: 'Converter', icon: '🧱', color: '#06b6d4', description: 'Compose a vector from floats' };
     }
 }
 
@@ -324,6 +356,10 @@ export class OutputNode extends ShaderNode {
             generator.addVarying('vPosition', 'vec3', 'position');
         }
         return '';
+    }
+
+    static getNodeInfo() {
+        return { label: 'Material Output', category: 'Output', icon: '🎯', color: '#ef4444', description: 'Final shader output' };
     }
 }
 
