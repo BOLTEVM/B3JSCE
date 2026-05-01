@@ -72,7 +72,7 @@ export class B3Editor extends HTMLElement {
     private wireMousePos: { x: number, y: number } = { x: 0, y: 0 };
     private selectedShaderNode: any | null = null;
     private isResizingLogic: boolean = false;
-    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' = 'logic';
+    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' | 'assetBank' = 'logic';
     private miningEventHandlers: Partial<Record<'fractal' | 'quai' | 'qrl', () => void>> = {};
     private documentationShortcutBound: boolean = false;
     private lazyComponents: Record<string, ComponentFn | null> = {
@@ -85,6 +85,7 @@ export class B3Editor extends HTMLElement {
         ProjectModal: null,
         DocumentationModal: null,
         AboutModal: null,
+        AssetBank: null,
     };
     private lazyComponentPromises: Record<string, Promise<void> | null> = {};
 
@@ -632,6 +633,7 @@ export class B3Editor extends HTMLElement {
         if (tab === 'optimization') this.loadLazyComponent('OptimizationPanel', () => import('./components/OptimizationPanel'));
         if (tab === 'inventory') this.loadLazyComponent('InventoryPanel', () => import('./components/InventoryPanel'));
         if (tab === 'robotics') this.loadLazyComponent('RoboticsPanel', () => import('./components/RoboticsPanel'));
+        if (tab === 'assetBank') this.loadLazyComponent('AssetBank', () => import('./components/AssetBank'));
     }
 
     private setBottomTab(tab: typeof this.activeBottomTab) {
@@ -808,6 +810,7 @@ export class B3Editor extends HTMLElement {
         const ProjectModal = this.lazyComponents.ProjectModal;
         const DocumentationModal = this.lazyComponents.DocumentationModal;
         const AboutModal = this.lazyComponents.AboutModal;
+        const AssetBank = this.lazyComponents.AssetBank;
 
         webjsx.applyDiff(this.root, (
             <div id="editor-root" style={`--accent: ${scheme.accent}; --accent-light: ${scheme.accentLight}; grid-template-rows: 40px 1fr 1fr 4px ${this.logicHeight}px 100px;`}>
@@ -950,6 +953,9 @@ export class B3Editor extends HTMLElement {
                          <div class={`menu-item ${this.activeBottomTab === 'robotics' ? 'active' : ''}`} 
                               style="height: 24px; font-size: 9px;"
                               onClick={() => this.setBottomTab('robotics')}>Robotics</div>
+                         <div class={`menu-item ${this.activeBottomTab === 'assetBank' ? 'active' : ''}`} 
+                              style="height: 24px; font-size: 9px;"
+                              onClick={() => this.setBottomTab('assetBank')}>Item Bank</div>
                      </div>
                     
                     {this.activeBottomTab === 'logic' && LogicEditor({ 
@@ -980,6 +986,10 @@ export class B3Editor extends HTMLElement {
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
                     {this.activeBottomTab === 'robotics' && (RoboticsPanel ? RoboticsPanel({ engine: this.engine }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'assetBank' && (AssetBank ? AssetBank({ 
+                        engine: this.engine,
+                        onRender: () => this.render()
+                    }) : this.renderLazyPanel())}
                 </div>
 
                 <div class="panel outliner">
@@ -1126,7 +1136,7 @@ export class B3Editor extends HTMLElement {
             'Scene': [
                 ...Array.from(this.engine?.sceneRegistry.keys() || []).map(name => ({
                     label: (this.engine?.activeSceneName === name ? '✓ ' : '  ') + name,
-                    action: () => this.engine?.switchScene(name)
+                    action: () => this.engine?.switchScene(name as string)
                 })),
                 { type: 'divider' },
                 { label: 'New Scene...', action: () => {

@@ -23,6 +23,7 @@ import { MiningManager } from './mining';
 import { EconomyManager } from './economics';
 import { B3Web3 } from '@b3js/web3';
 import { processGlbPhysics } from './glbParser';
+import { ASSET_BANK, AssetEntry } from './assets';
 
 // ─── Core Module Re-exports ────────────────────────────────────
 export { B3Object } from './core/B3Object';
@@ -46,6 +47,7 @@ export * from './serialization';
 export * from './glbParser';
 export { registerShaderChunk, getShaderChunk, getShaderChunkNames } from './shaders/ShaderLib';
 export * from './ai_nodes';
+export * from './assets';
 
 // ─── Factories & Templates ─────────────────────────────────────
 export {
@@ -148,6 +150,10 @@ export class B3Engine {
     activeSceneName: string = "MainScene";
     private _prePlayState: string | null = null;
 
+    // Governance & Permissions
+    isAdmin: boolean = true; 
+    allowPlayerVoiceAI: boolean = false;
+
     // Optimization State
     optimizationMode: 'auto' | 'manual' = 'auto';
     zoningRadius: number = 300;
@@ -229,6 +235,205 @@ export class B3Engine {
         }
 
         return clone;
+    }
+
+    /**
+     * Spawns an asset from the Item Bank (ASSET_BANK)
+     */
+    async spawnAsset(assetId: string, position?: THREE.Vector3) {
+        const entry = ASSET_BANK.find(a => a.id === assetId);
+        if (!entry) {
+            console.warn(`B3Engine: Asset '${assetId}' not found in registry.`);
+            return null;
+        }
+
+        let b3obj: B3Object | null = null;
+
+        // Determine spawn position (Default to ground if not provided)
+        const spawnPos = position || new THREE.Vector3(0, 0, 0);
+        if (!position) {
+            // Simple raycast to floor
+            const ray = new THREE.Raycaster(new THREE.Vector3(0, 10, 0), new THREE.Vector3(0, -1, 0));
+            const floor = this.scene.children.find(c => c.name === 'Floor Grid' || c.name === 'Arena Floor');
+            if (floor) {
+                const isect = ray.intersectObject(floor);
+                if (isect.length > 0) spawnPos.copy(isect[0].point);
+            }
+        }
+
+        if (entry.type === 'glb' && entry.url) {
+            const loader = new GLTFLoader();
+            try {
+                const gltf = await loader.loadAsync(entry.url);
+                const physics = processGlbPhysics(gltf, this.world);
+                b3obj = new B3Object(gltf.scene);
+                b3obj.name = entry.name;
+                b3obj.modelUrl = entry.url;
+                if (physics.bodies.length > 0) b3obj.body = physics.bodies[0].body;
+            } catch (e) {
+                console.error(`B3Engine: Failed to load GLB for ${entry.name}`, e);
+            }
+        } else if (entry.type === 'factory' && entry.factory) {
+            const factoryFn = (Factories as any)[entry.factory];
+            if (factoryFn) {
+                b3obj = factoryFn(this, entry.name);
+                // Factory already adds to engine, we just need the reference
+            }
+        }
+
+        if (b3obj) {
+            b3obj.object.position.copy(spawnPos);
+            if (b3obj.body) b3obj.body.position.copy(spawnPos as any);
+            
+            // Attach Inventory Metadata & Logic Hooks (Phase 2 Integration)
+            if (entry.inventory) {
+                b3obj.metadata = {
+                    ...b3obj.metadata,
+                    inventoryTemplate: entry.inventory
+                };
+
+                // Auto-attach Pickup Logic Bricks
+                const col = new CollisionSensor();
+                const act = new InventoryActuator(entry.inventory.category || 'Material', entry.inventory.quantity || 1);
+                const ctrl = new AndController();
+                
+                // Set IDs and wiring
+                col.id = `auto_col_${b3obj.id}`;
+                act.id = `auto_act_${b3obj.id}`;
+                ctrl.id = `auto_ctrl_${b3obj.id}`;
+                
+                ctrl.sensors.push(col);
+                ctrl.actuators.push(act);
+                
+                b3obj.addSensor(col);
+                b3obj.addActuator(act);
+                b3obj.addController(ctrl);
+                
+                console.log(`B3Engine: Attached auto-pickup logic to ${entry.name}`);
+            }
+            
+            // If not added by factory, add now
+            if (!this.objects.includes(b3obj)) {
+                this.addObject(b3obj);
+            }
+            
+            this.selectObject(b3obj.id);
+            console.log(`B3Engine: Spawned ${entry.name} from bank.`);
+        }
+
+        return b3obj;
+    }
+
+    /**
+     * High-level entry point for AI voice commands
+     */
+    async handleVoiceCommand(transcript: string) {
+        // Governance Check
+        if (!this.isAdmin && !this.allowPlayerVoiceAI) {
+            return "Voice AI is currently restricted by the administrator.";
+        }
+
+        const text = transcript.toLowerCase().trim();
+        console.log(`B3Engine [AI Voice]: Processing transcript -> "${text}"`);
+
+        // 1. Spawning Intent
+        const spawnVerbs = ['spawn', 'create', 'add', 'place', 'put', 'need a'];
+        for (const verb of spawnVerbs) {
+            if (text.includes(verb)) {
+                const query = text.replace(verb, '').trim();
+                const matchedAsset = ASSET_BANK.find(a => 
+                    query.includes(a.name.toLowerCase()) || 
+                    a.voiceKeywords.some(kw => query.includes(kw))
+                );
+                if (matchedAsset) {
+                    await this.spawnAsset(matchedAsset.id);
+                    return `Acknowledged. Spawning ${matchedAsset.name}.`;
+                }
+            }
+        }
+
+        // 2. Give Intent (To Inventory)
+        if (text.includes('give me') || text.includes('grant')) {
+            const query = text.replace('give me', '').replace('grant', '').trim();
+            const matchedAsset = ASSET_BANK.find(a => 
+                query.includes(a.name.toLowerCase()) || 
+                a.voiceKeywords.some(kw => query.includes(kw))
+            );
+            if (matchedAsset) {
+                return await this.giveItemToPlayer(matchedAsset.id);
+            }
+        }
+
+        // 3. Drop Intent (From Inventory)
+        if (text.includes('drop') || text.includes('throw away')) {
+            const query = text.replace('drop', '').replace('throw away', '').trim();
+            return await this.dropItemFromPlayer(query);
+        }
+
+        // 4. Global Scene Intents
+        if (text.includes('clear scene') || text.includes('reset scene') || text.includes('delete everything')) {
+            this.resetScene();
+            return "Scene cleared.";
+        }
+
+        if (text.includes('delete') || text.includes('remove')) {
+            if (this.selectedObject) {
+                const name = this.selectedObject.name;
+                this.removeObject(this.selectedObject.id);
+                return `Removed ${name}.`;
+            }
+        }
+
+        if (text.includes('compile') || text.includes('apply')) {
+            if (this.selectedObject && (this.selectedObject as any).recompileMaterial) {
+                (this.selectedObject as any).recompileMaterial();
+                return "Shader recompiled.";
+            }
+        }
+
+        return "Command received, but I'm not sure how to handle that yet.";
+    }
+
+    /**
+     * Grants an item from the bank directly to the player's inventory
+     */
+    async giveItemToPlayer(assetId: string) {
+        const entry = ASSET_BANK.find(a => a.id === assetId);
+        if (!entry || !entry.inventory) return "I can't give you that item.";
+
+        // Find the player actor (assuming first actor for now)
+        const player = this.objects.find(o => o.isActor);
+        if (player && player.inventory) {
+            const item = { 
+                ...entry.inventory, 
+                name: entry.name, 
+                modelUrl: entry.url,
+                quantity: entry.inventory.quantity || 1 
+            };
+            player.inventory.addItem(item as any);
+            return `Granted ${entry.name} to your inventory.`;
+        }
+        return "No active player found to receive items.";
+    }
+
+    /**
+     * Drops an item from the player's inventory into the world
+     */
+    async dropItemFromPlayer(itemName: string) {
+        const player = this.objects.find(o => o.isActor);
+        if (!player || !player.inventory) return "No active player found.";
+
+        const item = player.inventory.items.find(i => i.name.toLowerCase().includes(itemName.toLowerCase()));
+        if (!item) return `You don't have a ${itemName} in your bag.`;
+
+        // Find asset in bank to get model info
+        const asset = ASSET_BANK.find(a => a.name.toLowerCase() === item.name.toLowerCase());
+        const assetId = asset ? asset.id : 'primitive_cube';
+
+        player.inventory.removeItem(item.id!);
+        await this.spawnAsset(assetId, player.object.position.clone().add(new THREE.Vector3(0, 0, 1)));
+        
+        return `Dropped ${item.name} at your feet.`;
     }
 
     // ─── Cut-Scene & Recording State ───────────────────────────

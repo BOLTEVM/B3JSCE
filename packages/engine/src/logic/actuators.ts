@@ -223,18 +223,24 @@ export class InventoryActuator extends Actuator {
         // Grant to all touching actors (or just player)
         const actors = engine.objects.filter((o: any) => o.isActor && o.object.position.distanceTo(b3obj.object.position) < 1.5);
         actors.forEach((actor: any) => {
-            actor.inventory.addItem({
+            const template = (b3obj as any).metadata?.inventoryTemplate;
+            const item = template ? { 
+                ...template, 
+                name: template.name || b3obj.name,
+                quantity: this.quantity 
+            } : {
                 name: `${this.itemCategory} Pickup`,
                 category: this.itemCategory as any,
                 weight: 0.1, stackable: true, quantity: this.quantity
-            });
+            };
+            
+            actor.inventory.addItem(item);
+            console.log(`B3Engine: ${actor.name} picked up ${item.name}`);
         });
         
         // Mark for deletion if picked up
         if (actors.length > 0) {
-            b3obj.object.removeFromParent();
-            if (b3obj.body) engine.world.removeBody(b3obj.body);
-            engine.objects = engine.objects.filter((o: any) => o !== b3obj);
+            engine.removeObject(b3obj.id);
         }
     }
     update(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) {}
