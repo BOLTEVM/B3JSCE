@@ -24,6 +24,7 @@ import { EconomyManager } from './economics';
 import { B3Web3 } from '@b3js/web3';
 import { processGlbPhysics } from './glbParser';
 import { ASSET_BANK, AssetEntry } from './assets';
+import { VoiceManager } from './services/VoiceManager';
 
 // ─── Core Module Re-exports ────────────────────────────────────
 export { B3Object } from './core/B3Object';
@@ -48,6 +49,7 @@ export * from './glbParser';
 export { registerShaderChunk, getShaderChunk, getShaderChunkNames } from './shaders/ShaderLib';
 export * from './ai_nodes';
 export * from './assets';
+export * from './services/VoiceManager';
 
 // ─── Factories & Templates ─────────────────────────────────────
 export {
@@ -135,6 +137,7 @@ export class B3Engine {
     public digitalTwin!: DigitalTwinSystem;
     public economics: EconomyManager;
     public web3: typeof B3Web3 = B3Web3;
+    public voiceManager: VoiceManager = new VoiceManager(this);
     projects: ProjectManager = new ProjectManager();
     activeProjectId: string | null = null;
     pathfinder: any = null;
@@ -163,6 +166,25 @@ export class B3Engine {
 
     selectedObject: B3Object | null = null;
     selectedSubItem: { parentId: string, type: 'modifier' | 'vertexGroup' | 'logic', id: string } | null = null;
+
+    /**
+     * Verifies the user's NFT ownership and upgrades their status.
+     */
+    async verifyGovernanceNFT(address: string) {
+        const isMember = await this.web3.isGovernanceMember(address);
+        if (isMember) {
+            this.isAdmin = true;
+            console.log("B3Engine: Governance NFT verified. Admin privileges granted.");
+        }
+    }
+
+    /**
+     * Updates and broadcasts the Voice AI permission state.
+     */
+    updateGovernance(allowAI: boolean) {
+        this.allowPlayerVoiceAI = allowAI;
+        this.spacetime.pushGovernance(allowAI);
+    }
     spatialToolbar: CSS2DObject | null = null;
     private gizmo: TransformControls;
     private grid: THREE.GridHelper;
@@ -326,17 +348,18 @@ export class B3Engine {
 
     /**
      * High-level entry point for AI voice commands
+     * @param context Optional spatial context (position, targetObject)
      */
-    async handleVoiceCommand(transcript: string) {
+    async handleVoiceCommand(transcript: string, context: any = {}) {
         // Governance Check
         if (!this.isAdmin && !this.allowPlayerVoiceAI) {
             return "Voice AI is currently restricted by the administrator.";
         }
 
         const text = transcript.toLowerCase().trim();
-        console.log(`B3Engine [AI Voice]: Processing transcript -> "${text}"`);
+        console.log(`B3Engine [AI Voice]: Processing transcript -> "${text}" with context`, context);
 
-        // 1. Spawning Intent
+        // 1. Spawning Intent (Spatialised)
         const spawnVerbs = ['spawn', 'create', 'add', 'place', 'put', 'need a'];
         for (const verb of spawnVerbs) {
             if (text.includes(verb)) {
@@ -345,14 +368,40 @@ export class B3Engine {
                     query.includes(a.name.toLowerCase()) || 
                     a.voiceKeywords.some(kw => query.includes(kw))
                 );
+                
                 if (matchedAsset) {
-                    await this.spawnAsset(matchedAsset.id);
-                    return `Acknowledged. Spawning ${matchedAsset.name}.`;
+                    let spawnPos = null;
+                    if (text.includes('here') && context.position) {
+                        spawnPos = context.position;
+                    }
+                    await this.spawnAsset(matchedAsset.id, spawnPos);
+                    return `Acknowledged. Spawning ${matchedAsset.name}${spawnPos ? ' at your target' : ''}.`;
                 }
             }
         }
 
-        // 2. Give Intent (To Inventory)
+        // 2. Manipulation Intent (Deictic)
+        if (text.includes('delete this') || text.includes('remove this')) {
+            const target = context.targetObject || this.selectedObject;
+            if (target) {
+                const name = target.name || 'Object';
+                this.removeObject(target.id);
+                return `Removed ${name}.`;
+            }
+            return "I don't see anything to delete.";
+        }
+
+        if (text.includes('move this here') || text.includes('put this here')) {
+            const target = context.targetObject || this.selectedObject;
+            if (target && context.position) {
+                target.object.position.copy(context.position);
+                if (target.body) target.body.position.copy(context.position as any);
+                return `Moved ${target.name || 'object'} to your target.`;
+            }
+            return "I need a target and a destination to move objects.";
+        }
+
+        // 3. Give Intent (To Inventory)
         if (text.includes('give me') || text.includes('grant')) {
             const query = text.replace('give me', '').replace('grant', '').trim();
             const matchedAsset = ASSET_BANK.find(a => 

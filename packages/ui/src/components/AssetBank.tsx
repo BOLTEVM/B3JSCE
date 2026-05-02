@@ -1,33 +1,27 @@
 /** @jsx webjsx.h */
 import * as webjsx from 'webjsx';
 import { ASSET_BANK } from '@b3js/engine';
-import { VoiceManager } from '../services/VoiceManager';
 
 let searchFilter = '';
-let activeCategory = 'All';
+let openCategory: string | null = 'Primitives'; // Default open category
 let aiTranscript = '';
 let aiResponse = '';
 let isListening = false;
-let isInventoryView = false; // Phase 4: Toggle between Editor and Inventory stats
-let voiceManager: VoiceManager | null = null;
+let isInventoryView = false; 
 
 export const AssetBank = ({ engine, onRender }: any) => {
-    if (!voiceManager) {
-        voiceManager = new VoiceManager(engine);
-    }
-
-    const categories = ['All', 'Furniture', 'Props', 'Primitives', 'Web3', 'Lights', 'Robotics', 'Pickups'];
+    const categories = ['Furniture', 'Props', 'Primitives', 'Web3', 'Lights', 'Robotics', 'Pickups'];
     
     const filtered = ASSET_BANK.filter(a => {
         const matchesSearch = a.name.toLowerCase().includes(searchFilter.toLowerCase()) || 
-                             a.category.toLowerCase().includes(searchFilter.toLowerCase());
-        const matchesCat = activeCategory === 'All' || a.category === activeCategory;
-        return matchesSearch && matchesCat;
+                             a.category.toLowerCase().includes(searchFilter.toLowerCase()) ||
+                             (a.description && a.description.toLowerCase().includes(searchFilter.toLowerCase()));
+        return matchesSearch;
     });
 
     const toggleAI = () => {
-        voiceManager?.toggle(
-            (text, resp) => {
+        engine.voiceManager.toggle(
+            (text: string, resp: string) => {
                 aiTranscript = text;
                 aiResponse = resp;
                 if (onRender) onRender();
@@ -37,7 +31,7 @@ export const AssetBank = ({ engine, onRender }: any) => {
                     if (onRender) onRender();
                 }, 4000);
             },
-            (status) => {
+            (status: boolean) => {
                 isListening = status;
                 if (onRender) onRender();
             }
@@ -49,154 +43,177 @@ export const AssetBank = ({ engine, onRender }: any) => {
     };
 
     return (
-        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; background: #111; position: relative; overflow: hidden; font-family: 'Inter', sans-serif;">
+        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; background: #0a0a0a; position: relative; overflow: hidden; font-family: 'Inter', sans-serif; border-left: 1px solid #1a1a1a;">
             
             {/* Header / Search */}
-            <div style="padding: 16px; border-bottom: 1px solid #222; display: flex; align-items: center; gap: 15px; background: rgba(255,255,255,0.01); backdrop-filter: blur(10px);">
-                <div style="flex: 1; position: relative;">
-                    <input type="text" placeholder="Search 3D library..." 
-                           style="width: 100%; padding: 10px 15px; background: #000; border: 1px solid #333; color: #fff; border-radius: 8px; font-size: 11px; outline: none; transition: border-color 0.2s;"
-                           value={searchFilter}
-                           onInput={(e: any) => {
-                               searchFilter = e.target.value;
-                               if (onRender) onRender();
-                           }} />
+            <div style="padding: 16px; border-bottom: 1px solid #1a1a1a; display: flex; flex-direction: column; gap: 12px; background: rgba(0,0,0,0.4); backdrop-filter: blur(20px);">
+                <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px;">
+                    <span style="font-size: 10px; font-weight: 900; color: #555; text-transform: uppercase; letter-spacing: 1.5px;">Asset Catalog</span>
+                    <button 
+                        onClick={() => { isInventoryView = !isInventoryView; if(onRender) onRender(); }}
+                        style={`
+                            background: ${isInventoryView ? '#6366f1' : 'transparent'};
+                            border: 1px solid ${isInventoryView ? '#6366f1' : '#333'}; 
+                            border-radius: 4px; color: ${isInventoryView ? '#fff' : '#888'}; padding: 4px 8px;
+                            font-size: 8px; font-weight: 800; cursor: pointer; text-transform: uppercase;
+                            letter-spacing: 0.5px; transition: all 0.2s;
+                        `}>
+                        {isInventoryView ? 'Inventory' : 'Editor'}
+                    </button>
                 </div>
 
-                {/* View Toggle (Phase 4) */}
-                <button 
-                    onClick={() => { isInventoryView = !isInventoryView; if(onRender) onRender(); }}
-                    style={`
-                        background: ${isInventoryView ? '#6366f1' : '#222'};
-                        border: 1px solid #444; border-radius: 6px; color: #fff; padding: 8px 12px;
-                        font-size: 9px; font-weight: 800; cursor: pointer; text-transform: uppercase;
-                        letter-spacing: 0.5px; transition: all 0.2s;
-                    `}>
-                    {isInventoryView ? 'Inventory View' : 'Editor View'}
-                </button>
-                
-                {/* Voice AI Button */}
                 <div style="display: flex; align-items: center; gap: 10px;">
-                    {engine.isAdmin && (
-                        <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 2px;">
-                            <span style="font-size: 8px; font-weight: 800; color: #555; text-transform: uppercase;">Player AI</span>
-                            <input type="checkbox" 
-                                   checked={engine.allowPlayerVoiceAI} 
-                                   onChange={() => { engine.allowPlayerVoiceAI = !engine.allowPlayerVoiceAI; if (onRender) onRender(); }} />
-                        </div>
-                    )}
+                    <div style="flex: 1; position: relative;">
+                        <input type="text" placeholder="Search 3D library..." 
+                               style={`width: 100%; padding: 10px 15px; background: #000; border: 1px solid #222; color: #fff; border-radius: 8px; font-size: 11px; outline: none; transition: all 0.2s; border-color: ${searchFilter ? '#6366f1' : '#222'};`}
+                               value={searchFilter}
+                               onInput={(e: any) => {
+                                   searchFilter = e.target.value;
+                                   if (onRender) onRender();
+                               }} />
+                        {searchFilter && (
+                            <div onClick={() => { searchFilter = ''; if(onRender) onRender(); }} 
+                                 style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #555; font-size: 12px; font-weight: 800;">✕</div>
+                        )}
+                    </div>
+                    
                     <button 
                         onClick={toggleAI}
                         class={isListening ? 'voice-btn-active' : ''}
                         style={`
-                            width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
-                            display: flex; align-items: center; justify-content: center; font-size: 20px;
-                            background: ${isListening ? 'linear-gradient(135deg, #ef4444, #ec4899)' : 'linear-gradient(135deg, #6366f1, #a855f7)'};
-                            box-shadow: ${isListening ? '0 0 25px rgba(239, 68, 68, 0.4)' : '0 10px 20px rgba(0,0,0,0.4)'};
+                            width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+                            display: flex; align-items: center; justify-content: center; font-size: 18px;
+                            background: ${isListening ? 'linear-gradient(135deg, #ef4444, #ec4899)' : 'linear-gradient(135deg, #333, #222)'};
+                            box-shadow: ${isListening ? '0 0 20px rgba(239, 68, 68, 0.3)' : '0 4px 10px rgba(0,0,0,0.3)'};
                             transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
                             transform: ${isListening ? 'scale(1.1)' : 'scale(1)'};
+                            color: ${isListening ? '#fff' : '#666'};
                         `}>
                         {isListening ? '🎙️' : '🤖'}
                     </button>
                 </div>
             </div>
 
-            {/* Categories */}
-            <div style="display: flex; gap: 10px; padding: 12px 16px; overflow-x: auto; scrollbar-width: none; background: rgba(0,0,0,0.2);">
-                {categories.map(cat => (
-                    <button 
-                        onClick={() => { activeCategory = cat; if (onRender) onRender(); }}
-                        style={`
-                            padding: 6px 14px; border-radius: 6px; font-size: 10px; font-weight: 800; white-space: nowrap; cursor: pointer;
-                            border: 1px solid ${activeCategory === cat ? '#6366f1' : '#333'};
-                            background: ${activeCategory === cat ? '#6366f1' : 'rgba(255,255,255,0.02)'};
-                            color: ${activeCategory === cat ? '#fff' : '#888'};
-                            text-transform: uppercase; letter-spacing: 0.5px; transition: all 0.2s;
-                        `}>
-                        {cat}
-                    </button>
-                ))}
-            </div>
+            {/* Accordion List */}
+            <div style="flex: 1; overflow-y: auto; padding: 10px; scrollbar-width: thin;">
+                {categories.map(cat => {
+                    const catItems = filtered.filter(i => i.category === cat);
+                    if (catItems.length === 0 && searchFilter) return null;
+                    const isOpen = openCategory === cat || searchFilter.length > 0;
 
-            {/* Main Grid */}
-            <div style="flex: 1; padding: 20px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 20px; align-content: start;">
-                {filtered.map(item => (
-                    <div 
-                        onClick={() => spawn(item.id)}
-                        class="asset-card"
-                        style="background: #181818; border: 1px solid #222; border-radius: 14px; padding: 15px; cursor: pointer; transition: all 0.2s; display: flex; flex-direction: column; align-items: center; gap: 12px; text-align: center; position: relative; overflow: hidden;">
-                        
-                        <div style="font-size: 38px; filter: drop-shadow(0 8px 15px rgba(0,0,0,0.6)); transition: transform 0.2s;">{item.icon}</div>
-                        
-                        <div style="width: 100%;">
-                            <div style="font-size: 11px; font-weight: 800; color: #fff; letter-spacing: 0.2px;">{item.name}</div>
-                            
-                            {/* Inventory Stats Overlay (Phase 4) */}
-                            {isInventoryView && item.inventory ? (
-                                <div style="margin-top: 8px; display: flex; flex-wrap: wrap; justify-content: center; gap: 4px;">
-                                    <span style="background: #222; color: #6366f1; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: 900; border: 1px solid #6366f144;">
-                                        {item.inventory.weight}KG
+                    return (
+                        <div style="margin-bottom: 12px;">
+                            {/* Accordion Header */}
+                            <div 
+                                onClick={() => { openCategory = (openCategory === cat ? null : cat); if (onRender) onRender(); }}
+                                style={`
+                                    display: flex; align-items: center; justify-content: space-between;
+                                    padding: 8px 12px; background: ${isOpen ? 'rgba(99,102,241,0.08)' : 'rgba(255,255,255,0.02)'};
+                                    border-radius: 8px; cursor: pointer; transition: all 0.2s;
+                                    border: 1px solid ${isOpen ? 'rgba(99,102,241,0.2)' : 'transparent'};
+                                `}>
+                                <div style="display: flex; align-items: center; gap: 8px;">
+                                    <span style={`font-size: 8px; transition: transform 0.2s; transform: rotate(${isOpen ? '90deg' : '0deg'}); color: #555;`}>▶</span>
+                                    <span style={`font-size: 10px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: ${isOpen ? '#fff' : '#666'};`}>
+                                        {cat}
                                     </span>
-                                    <span style="background: #222; color: #10b981; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: 900; border: 1px solid #10b98144;">
-                                        {item.inventory.category}
-                                    </span>
-                                    {item.inventory.stackable && (
-                                        <span style="background: #222; color: #f59e0b; padding: 2px 6px; border-radius: 4px; font-size: 8px; font-weight: 900; border: 1px solid #f59e0b44;">
-                                            STACK
-                                        </span>
-                                    )}
                                 </div>
-                            ) : (
-                                <div style="font-size: 9px; color: #555; margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">{item.category}</div>
+                                <span style="font-size: 9px; color: #444; font-weight: 900;">{catItems.length}</span>
+                            </div>
+
+                            {/* Accordion Content */}
+                            {isOpen && (
+                                <div style="padding: 6px 0 0 10px; display: flex; flex-direction: column; gap: 4px; animation: slideIn 0.2s ease-out;">
+                                    {catItems.map(item => (
+                                        <div 
+                                            onClick={() => spawn(item.id)}
+                                            class="asset-list-item"
+                                            style="display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: all 0.15s; position: relative; overflow: hidden;">
+                                            
+                                            <div style="font-size: 20px; min-width: 30px; display: flex; justify-content: center;">{item.icon}</div>
+                                            
+                                            <div style="flex: 1; display: flex; flex-direction: column; gap: 1px;">
+                                                <div style="font-size: 11px; font-weight: 700; color: #ddd;">{item.name}</div>
+                                                <div style="font-size: 9px; color: #555; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">{item.description}</div>
+                                                
+                                                {isInventoryView && item.inventory && (
+                                                    <div style="margin-top: 4px; display: flex; gap: 4px;">
+                                                        <span style="font-size: 8px; color: #6366f1; background: #6366f111; padding: 1px 4px; border-radius: 3px;">{item.inventory.weight}KG</span>
+                                                        {item.inventory.stackable && <span style="font-size: 8px; color: #f59e0b; background: #f59e0b11; padding: 1px 4px; border-radius: 3px;">STACK</span>}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Quick Actions overlay on hover via CSS */}
+                                            <div class="item-action-hint" style="font-size: 16px; opacity: 0; transform: translateX(10px); transition: all 0.2s;">✨</div>
+                                        </div>
+                                    ))}
+                                </div>
                             )}
                         </div>
-                        
-                        {/* Hover Overlay */}
-                        <div class="card-overlay" style="position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, rgba(99,102,241,0.2)); opacity: 0; transition: opacity 0.2s;"></div>
+                    );
+                })}
+            </div>
+
+            {/* Footer Tip */}
+            <div style="padding: 12px; background: rgba(0,0,0,0.3); border-top: 1px solid #1a1a1a; display: flex; flex-direction: column; gap: 5px;">
+                <div style="font-size: 9px; color: #444; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; text-align: center;">
+                    Click to Spawn at Center
+                </div>
+                {engine.isAdmin && (
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 6px;">
+                        <span style="font-size: 8px; font-weight: 800; color: #333;">Allow Player AI</span>
+                        <input type="checkbox" 
+                               style="width: 10px; height: 10px;"
+                               checked={engine.allowPlayerVoiceAI} 
+                               onChange={() => { engine.allowPlayerVoiceAI = !engine.allowPlayerVoiceAI; if (onRender) onRender(); }} />
                     </div>
-                ))}
+                )}
             </div>
 
             {/* AI HUD Overlay */}
             {(isListening || aiTranscript) && (
                 <div style={`
-                    position: absolute; left: 50%; bottom: 25px; transform: translateX(-50%);
-                    width: 92%; max-width: 420px; background: rgba(10, 10, 15, 0.95); border: 1px solid rgba(99, 102, 241, 0.3);
-                    border-radius: 20px; padding: 20px; backdrop-filter: blur(30px); z-index: 100;
-                    display: flex; flex-direction: column; gap: 10px; box-shadow: 0 30px 60px rgba(0,0,0,0.9);
-                    animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+                    position: absolute; left: 50%; bottom: 80px; transform: translateX(-50%);
+                    width: 90%; background: rgba(10, 10, 15, 0.95); border: 1px solid rgba(99, 102, 241, 0.2);
+                    border-radius: 12px; padding: 15px; backdrop-filter: blur(20px); z-index: 100;
+                    display: flex; flex-direction: column; gap: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+                    animation: slideUp 0.3s ease-out;
                 `}>
                     <div style="display: flex; align-items: center; justify-content: space-between;">
-                        <div style="display: flex; align-items: center; gap: 10px;">
-                            <div class={isListening ? 'listening-indicator' : ''} style={`width: 10px; height: 10px; border-radius: 50%; background: ${isListening ? '#ef4444' : '#6366f1'};`}></div>
-                            <span style="font-size: 10px; font-weight: 900; color: #666; text-transform: uppercase; letter-spacing: 1px;">
-                                {isListening ? 'AI Pulse Active' : 'Response Latency: 42ms'}
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <div class={isListening ? 'listening-indicator' : ''} style={`width: 6px; height: 6px; border-radius: 50%; background: ${isListening ? '#ef4444' : '#6366f1'};`}></div>
+                            <span style="font-size: 9px; font-weight: 900; color: #555; text-transform: uppercase; letter-spacing: 1px;">
+                                {isListening ? 'Listening...' : 'Processed'}
                             </span>
                         </div>
-                        <div style="font-size: 10px; color: #444; font-weight: 800;">B3JS-AI-V1</div>
                     </div>
                     
-                    <div style="font-size: 15px; color: #fff; font-weight: 600; line-height: 1.4;">
-                        "{aiTranscript || 'Standing by for spatial command...'}"
+                    <div style="font-size: 13px; color: #fff; font-weight: 500; line-height: 1.4; font-style: italic;">
+                        "{aiTranscript || '...'}"
                     </div>
                     
                     {aiResponse && (
-                        <div style="font-size: 12px; color: #6366f1; font-weight: 700; border-top: 1px solid #222; padding-top: 12px; display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 16px;">✨</span> {aiResponse}
+                        <div style="font-size: 11px; color: #6366f1; font-weight: 700; border-top: 1px solid #222; padding-top: 8px; display: flex; align-items: center; gap: 6px;">
+                            <span style="font-size: 14px;">✨</span> {aiResponse}
                         </div>
                     )}
                 </div>
             )}
 
             <style>{`
-                @keyframes pulse {
-                    0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
-                    70% { transform: scale(1.05); box-shadow: 0 0 0 15px rgba(99, 102, 241, 0); }
-                    100% { transform: scale(1); }
+                @keyframes slideIn {
+                    from { opacity: 0; transform: translateY(-5px); }
+                    to { opacity: 1; transform: translateY(0); }
                 }
                 @keyframes slideUp {
-                    from { transform: translate(-50%, 50px); opacity: 0; }
-                    to { transform: translate(-50%, 0); opacity: 1; }
+                    from { opacity: 0; transform: translate(-50%, 10px); }
+                    to { opacity: 1; transform: translate(-50%, 0); }
+                }
+                @keyframes pulse {
+                    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+                    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
                 }
                 .voice-btn-active {
                     animation: pulse 2s infinite !important;
@@ -204,17 +221,16 @@ export const AssetBank = ({ engine, onRender }: any) => {
                 .listening-indicator {
                     animation: pulse 1s infinite;
                 }
-                .asset-card:hover {
-                    background: #222 !important;
-                    border-color: #6366f1 !important;
-                    transform: translateY(-5px);
-                    box-shadow: 0 15px 30px rgba(0,0,0,0.5);
+                .asset-list-item:hover {
+                    background: rgba(255,255,255,0.05) !important;
                 }
-                .asset-card:hover div {
-                    transform: scale(1.1);
-                }
-                .asset-card:hover .card-overlay {
+                .asset-list-item:hover .item-action-hint {
                     opacity: 1 !important;
+                    transform: translateX(0) !important;
+                }
+                .asset-list-item:active {
+                    background: rgba(99,102,241,0.1) !important;
+                    transform: scale(0.98);
                 }
             `}</style>
         </div>

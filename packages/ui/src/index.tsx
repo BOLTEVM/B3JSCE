@@ -151,8 +151,15 @@ export class B3Editor extends HTMLElement {
         // Initialize SpacetimeDB connection for real-time multiplayer sync
         this.engine.spacetime.connect('ws://localhost:3000', 'b3js_sync');
 
+        // Load Custom Assets if configured
+        const customAssetsUrl = localStorage.getItem('B3JS_CUSTOM_ASSETS_URL');
+        if (customAssetsUrl) {
+            this.engine.loadCustomAssetBank(customAssetsUrl);
+        }
+
         this.render();
     }
+
 
     private renderNode(node: any, type: string) {
         const info = (node.constructor as any).getNodeInfo ? (node.constructor as any).getNodeInfo() : { label: node.constructor.name, category: 'Default', icon: '📦', color: '#888' };
@@ -1029,7 +1036,12 @@ export class B3Editor extends HTMLElement {
                     </div>
                 </div>
 
-                {SettingsModal({ isOpen: this.isSettingsOpen, onClose: () => { this.isSettingsOpen = false; this.render(); } })}
+                {SettingsModal({ 
+                    isOpen: this.isSettingsOpen, 
+                    onClose: () => { this.isSettingsOpen = false; this.render(); },
+                    onRender: () => this.render(),
+                    engine: this.engine
+                })}
                 
                 {ProjectModal && ProjectModal({ 
                     isOpen: this.isProjectModalOpen, 

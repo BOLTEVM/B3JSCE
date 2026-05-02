@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { B3Engine } from './index';
+import { ASSET_BANK } from './assets';
 
 /**
  * XRRadialMenu: A spatial 3D menu that attaches to the controller for mode switching.
@@ -10,10 +11,10 @@ export class XRRadialMenu {
     private visible: boolean = false;
     private currentCategory: string | null = null;
 
-    private menuData = {
-        'Root': ['Locomotion', 'Spawn', 'Designer', 'Inventory', 'Inspector'],
+    private menuData: any = {
+        'Root': ['Locomotion', 'Assets', 'Designer', 'Inventory', 'Inspector'],
         'Locomotion': ['Teleport', 'Fly', 'No-Clip', 'Back'],
-        'Spawn': ['NPC', 'Vehicle', 'Cube', 'Back'],
+        'Assets': ['Furniture', 'Web3', 'Props', 'Primitives', 'Pickups', 'Back'],
         'Designer': ['Translate', 'Rotate', 'Scale', 'Clear', 'Back'],
         'Inventory': ['Equip Weapon', 'Drop Last', 'Back']
     };
@@ -43,7 +44,16 @@ export class XRRadialMenu {
         this.buttons = [];
         this.currentCategory = category;
 
-        const options = (this.menuData as any)[category] || this.menuData.Root;
+        const assetCats = ['Furniture', 'Web3', 'Props', 'Primitives', 'Pickups', 'Robotics'];
+        let options: string[] = [];
+        
+        if (assetCats.includes(category)) {
+            options = ASSET_BANK.filter(a => a.category === category).map(a => a.name);
+            options.push('Back');
+        } else {
+            options = (this.menuData as any)[category] || this.menuData.Root;
+        }
+
         const radius = 0.18;
 
         options.forEach((label: string, i: number) => {
@@ -210,4 +220,79 @@ export class XRInspectorCard {
     }
 
     public hide() { this.group.visible = false; }
+}
+
+/**
+ * XRAiHUD: Floating AI status and transcript for XR
+ */
+export class XRAiHUD {
+    public group: THREE.Group;
+    private canvas: HTMLCanvasElement;
+    private ctx: CanvasRenderingContext2D;
+    private texture: THREE.CanvasTexture;
+    private plane: THREE.Mesh;
+
+    constructor() {
+        this.group = new THREE.Group();
+        this.group.visible = false;
+
+        this.canvas = document.createElement('canvas');
+        this.canvas.width = 512; this.canvas.height = 128;
+        this.ctx = this.canvas.getContext('2d')!;
+        this.texture = new THREE.CanvasTexture(this.canvas);
+
+        this.plane = new THREE.Mesh(
+            new THREE.PlaneGeometry(0.4, 0.1),
+            new THREE.MeshBasicMaterial({ map: this.texture, transparent: true, side: THREE.DoubleSide })
+        );
+        this.group.add(this.plane);
+    }
+
+    public update(text: string, response: string, isListening: boolean) {
+        this.ctx.clearRect(0, 0, 512, 128);
+        
+        // Background
+        this.ctx.fillStyle = 'rgba(10, 12, 28, 0.9)';
+        this.ctx.beginPath();
+        this.ctx.roundRect(0, 0, 512, 128, 15);
+        this.ctx.fill();
+
+        // Border Pulse
+        this.ctx.strokeStyle = isListening ? '#ef4444' : '#6366f1';
+        this.ctx.lineWidth = 4;
+        this.ctx.stroke();
+
+        // Icon/Status
+        this.ctx.fillStyle = isListening ? '#ef4444' : '#6366f1';
+        this.ctx.font = 'bold 16px Inter, Segoe UI';
+        this.ctx.fillText(isListening ? '🎙️ LISTENING...' : '🤖 AI ACTIVE', 20, 30);
+
+        // Transcript
+        this.ctx.fillStyle = '#ffffff';
+        this.ctx.font = '20px Inter, Segoe UI';
+        const displayTask = text ? `"${text}"` : 'Standing by...';
+        this.ctx.fillText(displayTask, 20, 70);
+
+        // Response
+        if (response) {
+            this.ctx.fillStyle = '#6366f1';
+            this.ctx.font = 'bold 16px Inter, Segoe UI';
+            this.ctx.fillText(`✨ ${response}`, 20, 110);
+        }
+
+        this.texture.needsUpdate = true;
+        this.group.visible = true;
+    }
+
+    public showAt(pos: THREE.Vector3, quat: THREE.Quaternion) {
+        this.group.position.copy(pos);
+        this.group.quaternion.copy(quat);
+        this.group.translateZ(-0.35); // Float in front
+        this.group.translateY(0.1);
+        this.group.visible = true;
+    }
+
+    public hide() {
+        this.group.visible = false;
+    }
 }

@@ -157,6 +157,19 @@ export class SpacetimeManager {
         this.conn.reducers?.despawn_entity(id);
     }
 
+    /**
+     * Broadcasts governance state (Admin permissions, Player Voice toggle) to the lobby.
+     */
+    public pushGovernance(allowPlayerAI: boolean) {
+        if (!this.isOnline || !this.currentLobbyId) return;
+        console.log(`B3JS Spacetime: Syncing Governance -> PlayerVoiceAI: ${allowPlayerAI}`);
+        // We use a specific 'GlobalSettings' or similar reducer if defined, 
+        // or a dedicated metadata entity for lobby-wide settings.
+        this.conn.reducers?.update_lobby_settings?.(this.currentLobbyId, JSON.stringify({
+            allowPlayerVoiceAI: allowPlayerAI
+        }));
+    }
+
     private cacheToLocalStorage() {
         const state = this.engine.serialize();
         localStorage.setItem(this.CACHE_KEY, state);

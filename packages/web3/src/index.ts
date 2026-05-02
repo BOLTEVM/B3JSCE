@@ -16,6 +16,17 @@ export class B3Web3 {
         console.log("B3JS: Connecting to Web3...");
         return { address: "0x123...456", status: "CONNECTED" };
     }
+
+    /**
+     * Checks if the connected wallet owns the B3 Governance NFT.
+     * Used for unlocking AI administrative features.
+     */
+    static async isGovernanceMember(address: string): Promise<boolean> {
+        console.log(`B3JS Web3: Verifying Governance NFT for ${address}...`);
+        // In production, this would call a contract.balanceOf() or use an indexer API.
+        // For now, we simulate ownership for the demo address.
+        return address.startsWith("0x123") || address === "Admin";
+    }
 }
 
 export type MiningStats = {

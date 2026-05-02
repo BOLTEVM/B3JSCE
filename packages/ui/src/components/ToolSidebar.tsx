@@ -68,25 +68,6 @@ export const ToolSidebar = ({
                         onRender();
                     }
                 }}>↺</button>
-            
-            <div class="sidebar-hr"></div>
-            <div class="sidebar-category">Templates</div>
-            {TEMPLATE_CATALOG.map((t: any) => (
-                <button class="tool-btn" title={t.name + ": " + t.description} style="width: 40px; font-size: 14px;"
-                    onClick={() => {
-                        if (selectedObject) {
-                            const res = buildTemplate(t.id);
-                            if (res) {
-                                res.nodes.forEach((n: any) => {
-                                    if ((n as any) instanceof Sensor) selectedObject.addSensor(n);
-                                    else if ((n as any) instanceof Actuator) selectedObject.addActuator(n);
-                                    else selectedObject.addController(n);
-                                });
-                                onRender();
-                            }
-                        }
-                    }}>{t.icon}</button>
-            ))}
         </div>
     );
 };

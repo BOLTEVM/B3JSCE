@@ -18,7 +18,7 @@ export interface AssetEntry {
     inventory?: Partial<B3Item>; // Optional metadata for collectable items
 }
 
-export const ASSET_BANK: AssetEntry[] = [
+export let ASSET_BANK: AssetEntry[] = [
     // --- FURNITURE ---
     {
         id: 'chair_modern',

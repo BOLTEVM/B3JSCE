@@ -3,14 +3,23 @@ import * as webjsx from 'webjsx';
 import { getCSharpCompileMode, setCSharpCompileMode } from '@b3js/engine';
 import { COLOR_SCHEMES, getActiveScheme, setActiveScheme } from '../store/colorScheme';
 
-export const SettingsModal = ({ isOpen, onClose, onRender }: any) => {
+export const SettingsModal = ({ isOpen, onClose, onRender, engine }: any) => {
     if (!isOpen) return <div />;
 
     const paletteMode = localStorage.getItem('B3JS_PALETTE_MODE') || 'list';
     const wireOpacity = localStorage.getItem('B3JS_WIRE_OPACITY') || '0.8';
     const wireColorMode = localStorage.getItem('B3JS_WIRE_COLOR_MODE') || 'typed';
     const wireCustomColor = localStorage.getItem('B3JS_WIRE_CUSTOM_COLOR') || '#e68523';
+    const customAssetsUrl = localStorage.getItem('B3JS_CUSTOM_ASSETS_URL') || '';
     const activeScheme = getActiveScheme();
+
+    const saveAssetUrl = (url: string) => {
+        localStorage.setItem('B3JS_CUSTOM_ASSETS_URL', url);
+        if (engine && url) {
+            engine.loadCustomAssetBank(url);
+        }
+        onRender && onRender();
+    };
 
     return (
         <div class="modal-overlay" onClick={onClose}>
@@ -29,6 +38,31 @@ export const SettingsModal = ({ isOpen, onClose, onRender }: any) => {
                     <div class="prop-row">
                         <div class="prop-label">Physics Step</div>
                         <div class="prop-value">60Hz (Deterministic)</div>
+                    </div>
+                </div>
+
+                <div class="setting-card" style="border-left-color: #00ff88;">
+                    <div class="setting-title">Asset Pipeline</div>
+                    <div class="prop-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                        <div class="prop-label" style="width: 100%;">Custom Asset Bank URL</div>
+                        <div style="display: flex; width: 100%; gap: 8px;">
+                            <input 
+                                type="text" 
+                                placeholder="https://example.com/assets.json" 
+                                value={customAssetsUrl} 
+                                style="flex: 1; padding: 6px 10px; background: #000; border: 1px solid #333; color: #fff; font-size: 11px; border-radius: 4px; outline: none;"
+                                onInput={(e: any) => {
+                                    localStorage.setItem('B3JS_CUSTOM_ASSETS_URL', e.target.value);
+                                    onRender && onRender();
+                                }}
+                            />
+                            <button 
+                                onClick={() => saveAssetUrl(localStorage.getItem('B3JS_CUSTOM_ASSETS_URL') || '')}
+                                style="background: #00ff88; color: #000; border: none; padding: 4px 12px; border-radius: 4px; font-size: 10px; font-weight: bold; cursor: pointer;">
+                                LOAD
+                            </button>
+                        </div>
+                        <div style="font-size: 9px; color: #555;">Must be a JSON array of AssetEntry objects.</div>
                     </div>
                 </div>
 
@@ -140,3 +174,4 @@ export const SettingsModal = ({ isOpen, onClose, onRender }: any) => {
         </div>
     );
 };
+

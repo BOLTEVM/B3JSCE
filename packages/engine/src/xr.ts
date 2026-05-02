@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { B3Engine } from './index';
-import { XRRadialMenu, XRGizmo, XRInspectorCard } from './xr_ui';
+import { ASSET_BANK } from './assets';
+import { XRRadialMenu, XRGizmo, XRInspectorCard, XRAiHUD } from './xr_ui';
 
 export type LocomotionMode = 'Teleport' | 'Fly' | 'Designer' | 'Teleoperation';
 
@@ -17,6 +18,7 @@ export class XRManager {
     private menu: XRRadialMenu;
     private gizmo: XRGizmo;
     private inspector: XRInspectorCard;
+    private aiHud: XRAiHUD;
     
     private teleportMarker: THREE.Mesh;
     private teleportRay: THREE.Line;
@@ -39,8 +41,10 @@ export class XRManager {
         this.menu = new XRRadialMenu(this.engine);
         this.gizmo = new XRGizmo();
         this.inspector = new XRInspectorCard();
+        this.aiHud = new XRAiHUD();
         this.engine.scene.add(this.gizmo.group);
         this.engine.scene.add(this.inspector.group);
+        this.engine.scene.add(this.aiHud.group);
 
         // Setup Teleport Visuals
         const markerGeo = new THREE.RingGeometry(0.1, 0.12, 32);
@@ -95,31 +99,34 @@ export class XRManager {
             
             if (selection === 'Teleport' || selection === 'Fly' || selection === 'Designer' || selection === 'Teleoperation') {
                 this.setMode(selection as LocomotionMode);
-            } else if (selection === 'NPC') {
-                this.engine.createNPC();
-            } else if (selection === 'Vehicle') {
-                this.engine.createVehicleBase();
-            } else if (selection === 'Cube') {
-                this.engine.createCube();
-            } else if (selection === 'Equip Weapon') {
-                if (this.selectedObjectId) {
-                    const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
-                    if (obj) {
-                        const weapons = obj.inventory.getItemsByCategory('Weapon');
-                        if (weapons.length > 0) obj.equipItem(weapons[0]); // Equip first found weapon
+            } else if (selection) {
+                // Check if selection is an Asset Name
+                const asset = ASSET_BANK.find(a => a.name === selection);
+                if (asset) {
+                    const raycaster = this.getControllerRay(index);
+                    const intersects = raycaster.intersectObjects(this.engine.scene.children, true);
+                    const spawnPos = intersects.length > 0 ? intersects[0].point : undefined;
+                    this.engine.spawnAsset(asset.id, spawnPos);
+                } else if (selection === 'Equip Weapon') {
+                    if (this.selectedObjectId) {
+                        const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
+                        if (obj) {
+                            const weapons = obj.inventory.getItemsByCategory('Weapon');
+                            if (weapons.length > 0) obj.equipItem(weapons[0]); // Equip first found weapon
+                        }
                     }
-                }
-            } else if (selection === 'Drop Last') {
-                if (this.selectedObjectId) {
-                    const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
-                    if (obj && obj.inventory.items.length > 0) {
-                        obj.inventory.removeItem(obj.inventory.items[obj.inventory.items.length-1].id!);
+                } else if (selection === 'Drop Last') {
+                    if (this.selectedObjectId) {
+                        const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
+                        if (obj && obj.inventory.items.length > 0) {
+                            obj.inventory.removeItem(obj.inventory.items[obj.inventory.items.length-1].id!);
+                        }
                     }
-                }
-            } else if (selection === 'Inspector') {
-                if (this.selectedObjectId) {
-                    const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
-                    if (obj) this.inspector.update(obj);
+                } else if (selection === 'Inspector') {
+                    if (this.selectedObjectId) {
+                        const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
+                        if (obj) this.inspector.update(obj);
+                    }
                 }
             }
         } else if (this.mode === 'Teleport' && this.teleportMarker.visible) {
@@ -192,6 +199,17 @@ export class XRManager {
         const session = this.engine.renderer.xr.getSession();
         if (!session) return;
 
+        // Process Controller Buttons (Voice AI Trigger - Button 4 / Secondary)
+        for (const source of session.inputSources) {
+            if (source.gamepad && source.gamepad.buttons.length > 4) {
+                const secondaryBtn = source.gamepad.buttons[4]; // B or Y button
+                if (secondaryBtn.pressed) {
+                    const ctrl = this.controllers[source.handedness === 'left' ? 0 : 1];
+                    this.triggerVoiceAI(ctrl);
+                }
+            }
+        }
+
         // Process Locomotion
         if (this.mode === 'Fly') {
             this.handleFly(delta);
@@ -202,6 +220,43 @@ export class XRManager {
         } else if (this.mode === 'Teleoperation') {
             this.handleTeleoperationUpdate(delta);
         }
+    }
+
+    private _lastVoiceTrigger = 0;
+    private triggerVoiceAI(controller: THREE.Group) {
+        const now = Date.now();
+        if (now - this._lastVoiceTrigger < 500) return; // Debounce
+        this._lastVoiceTrigger = now;
+
+        // Capture Spatial Context
+        const raycaster = this.getControllerRay(this.primaryControllerIndex);
+        const intersects = raycaster.intersectObjects(this.engine.scene.children, true);
+        const context: any = {};
+        
+        if (intersects.length > 0) {
+            context.position = intersects[0].point.clone();
+            
+            // Try to find targeted B3Object
+            let target = intersects[0].object;
+            while (target.parent && !(target as any).b3id) target = target.parent;
+            if ((target as any).b3id) {
+                context.targetObject = this.engine.objects.find(o => o.id === (target as any).b3id);
+            }
+        }
+
+        this.engine.voiceManager.setContext(context);
+        this.engine.voiceManager.toggle(
+            (text, resp) => {
+                this.aiHud.update(text, resp, false);
+                setTimeout(() => this.aiHud.hide(), 5000);
+            },
+            (isListening) => {
+                if (isListening) {
+                    this.aiHud.update('', '', true);
+                    this.aiHud.showAt(controller.position, controller.quaternion);
+                }
+            }
+        );
     }
 
     private handleDesignerUpdate() {
