@@ -12,12 +12,14 @@ export class XRRadialMenu {
     private currentCategory: string | null = null;
 
     private menuData: any = {
-        'Root': ['Locomotion', 'Assets', 'Designer', 'Inventory', 'Inspector'],
+        'Root': ['Locomotion', 'Assets', 'Designer', 'Scale', 'Inventory', 'Inspector'],
         'Locomotion': ['Teleport', 'Fly', 'No-Clip', 'Back'],
         'Assets': ['Furniture', 'Web3', 'Props', 'Primitives', 'Pickups', 'Back'],
         'Designer': ['Translate', 'Rotate', 'Scale', 'Clear', 'Back'],
+        'Scale': ['Object Mode', 'World Mode', 'Precision Toggle', 'Reset All', 'Back'],
         'Inventory': ['Equip Weapon', 'Drop Last', 'Back']
     };
+
 
     constructor(private engine: B3Engine) {
         this.group = new THREE.Group();

@@ -419,6 +419,14 @@ export class B3Object {
         this.body.updateBoundingRadius();
     }
 
+    /**
+     * Synchronizes the physics body with the current visual scale.
+     */
+    public syncPhysicsScale() {
+        this.recalculatePhysicsBody();
+    }
+
+
     public normalizeScale() {
         if (!this.object) return;
         

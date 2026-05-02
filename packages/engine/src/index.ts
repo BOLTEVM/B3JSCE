@@ -347,6 +347,28 @@ export class B3Engine {
     }
 
     /**
+     * Dynamically loads and registers a custom asset bank from a JSON URL.
+     */
+    async loadCustomAssetBank(url: string) {
+        try {
+            console.log(`B3Engine: Fetching custom asset bank from ${url}`);
+            const response = await fetch(url);
+            const assets: AssetEntry[] = await response.json();
+            
+            assets.forEach(entry => {
+                if (!ASSET_BANK.find(a => a.id === entry.id)) {
+                    ASSET_BANK.push(entry);
+                }
+            });
+            
+            console.log(`B3Engine: Successfully loaded ${assets.length} custom assets.`);
+        } catch (e) {
+            console.error("B3Engine: Failed to load custom asset bank", e);
+        }
+    }
+
+
+    /**
      * High-level entry point for AI voice commands
      * @param context Optional spatial context (position, targetObject)
      */

@@ -29,6 +29,14 @@ export class XRManager {
     private grabOffset: THREE.Vector3 = new THREE.Vector3();
     private activeGizmoAxis: string | null = null;
 
+    // Scaling System State
+    private scaleMode: 'Object' | 'World' | 'None' = 'None';
+    private isPrecisionScaling: boolean = false;
+    private initialGripDistance: number = 0;
+    private initialTargetScale: number = 1.0;
+    private isScalingActive: boolean = false;
+
+
     // Cache to prevent per-frame allocations
     private _raycaster = new THREE.Raycaster();
     private _tempMat = new THREE.Matrix4();
@@ -65,15 +73,16 @@ export class XRManager {
         for (let i = 0; i < 2; i++) {
             const controller = this.engine.renderer.xr.getController(i);
             controller.add(this.teleportRay.clone());
-            this.engine.scene.add(controller);
+            this.engine.xrRig.add(controller); // Attach to rig for correct scaling/locomotion
             this.controllers.push(controller);
 
             const grip = this.engine.renderer.xr.getControllerGrip(i);
             // Add a simple controller model (box)
             const model = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.1), new THREE.MeshStandardMaterial({ color: 0x333333 }));
             grip.add(model);
-            this.engine.scene.add(grip);
+            this.engine.xrRig.add(grip); // Attach to rig
             this.controllerGrips.push(grip);
+
 
             controller.addEventListener('selectstart', () => this.onSelectStart(i));
             controller.addEventListener('selectend', () => this.onSelectEnd(i));
@@ -127,9 +136,29 @@ export class XRManager {
                         const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
                         if (obj) this.inspector.update(obj);
                     }
+                } else if (selection === 'Object Mode') {
+                    this.scaleMode = 'Object';
+                    console.log("B3JS XR: Scale Mode -> Object");
+                } else if (selection === 'World Mode') {
+                    this.scaleMode = 'World';
+                    console.log("B3JS XR: Scale Mode -> World");
+                } else if (selection === 'Precision Toggle') {
+                    this.isPrecisionScaling = !this.isPrecisionScaling;
+                    console.log(`B3JS XR: Precision Scaling -> ${this.isPrecisionScaling}`);
+                } else if (selection === 'Reset All') {
+                    if (this.selectedObjectId) {
+                        const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
+                        if (obj) {
+                            obj.object.scale.set(1, 1, 1);
+                            if (obj.body) (obj as any).syncPhysicsScale?.();
+                        }
+                    }
+                    this.engine.xrRig.scale.set(1, 1, 1);
+                    console.log("B3JS XR: Scale Reset to Default");
                 }
             }
         } else if (this.mode === 'Teleport' && this.teleportMarker.visible) {
+
             this.engine.xrRig.position.copy(this.teleportMarker.position);
         } else if (this.mode === 'Designer') {
             this.grabbedObject = null;
@@ -220,7 +249,73 @@ export class XRManager {
         } else if (this.mode === 'Teleoperation') {
             this.handleTeleoperationUpdate(delta);
         }
+
+        this.handleScalingGesture(delta);
     }
+
+    private handleScalingGesture(delta: number) {
+        if (this.scaleMode === 'None') return;
+
+        const session = this.engine.renderer.xr.getSession();
+        if (!session) return;
+
+        let gripsPressed = 0;
+        for (const source of session.inputSources) {
+            if (source.gamepad && source.gamepad.buttons.length > 1) {
+                const grip = source.gamepad.buttons[1]; // Common index for Grip
+                if (grip.pressed) gripsPressed++;
+            }
+        }
+
+        if (gripsPressed === 2) {
+            // Calculate distance between controller grips
+            const dist = this.controllers[0].position.distanceTo(this.controllers[1].position);
+            
+            if (!this.isScalingActive) {
+                this.isScalingActive = true;
+                this.initialGripDistance = dist;
+                if (this.scaleMode === 'Object' && this.selectedObjectId) {
+                    const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
+                    this.initialTargetScale = obj ? obj.object.scale.x : 1.0;
+                } else if (this.scaleMode === 'World') {
+                    this.initialTargetScale = this.engine.xrRig.scale.x;
+                }
+                
+                // Show HUD
+                this.aiHud.showAt(this.controllers[0].position, this.controllers[0].quaternion);
+            } else {
+                let ratio = dist / this.initialGripDistance;
+                
+                if (this.isPrecisionScaling) {
+                    // Damping for precision: only apply 10% of the movement delta
+                    ratio = 1.0 + (ratio - 1.0) * 0.1;
+                }
+
+                const newScale = Math.max(0.01, Math.min(100, this.initialTargetScale * ratio));
+                
+                if (this.scaleMode === 'Object' && this.selectedObjectId) {
+                    const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
+                    if (obj) {
+                        obj.object.scale.setScalar(newScale);
+                        this.aiHud.update('', `OBJECT SCALE: ${(newScale * 100).toFixed(1)}%`, false);
+                    }
+                } else if (this.scaleMode === 'World') {
+                    this.engine.xrRig.scale.setScalar(newScale);
+                    this.aiHud.update('', `WORLD SCALE: ${(newScale * 100).toFixed(1)}%`, false);
+                }
+            }
+        } else {
+            if (this.isScalingActive) {
+                this.isScalingActive = false;
+                if (this.scaleMode === 'Object' && this.selectedObjectId) {
+                     const obj = this.engine.objects.find(o => o.id === this.selectedObjectId);
+                     if (obj && obj.body) (obj as any).syncPhysicsScale?.();
+                }
+                setTimeout(() => this.aiHud.hide(), 2000);
+            }
+        }
+    }
+
 
     private _lastVoiceTrigger = 0;
     private triggerVoiceAI(controller: THREE.Group) {
@@ -310,8 +405,11 @@ export class XRManager {
                     this._flyDir.set(x, 0, y).applyQuaternion(this.engine.camera.quaternion);
                     if (!this.noclip) this._flyDir.y = 0;
                     
-                    this.engine.xrRig.position.addScaledVector(this._flyDir, this.flySpeed * delta);
+                    // Scale movement speed with the rig scale
+                    const scaledSpeed = this.flySpeed * this.engine.xrRig.scale.x;
+                    this.engine.xrRig.position.addScaledVector(this._flyDir, scaledSpeed * delta);
                 }
+
             }
         }
     }
