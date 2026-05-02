@@ -22,11 +22,17 @@ From high-fidelity tactical simulations to decentralized virtual worlds, B3JS pr
 - **🐍 Python & C# Scripting**: Sandboxed behavior logic powered by **Pyodide** and dynamic C# execution contexts.
 - **🦴 Dynamic Skeleton & Procedural IK**: Native extraction of `THREE.Bone` hierarchies from GLTF imports. Logic Bricks like `BoneLookAtActuator` provide dynamic procedural aiming, head tracking, and IK recoil out-of-the-box.
 - **🥽 XR Locomotion Ready**: Hardcoded index limitations resolved with dynamic dominant-handedness detection and patched memory leaks for seamless headset experiences.
+- **📏 Dynamic XR Scale System**: Advanced two-handed "grip-and-stretch" gestures for scaling both objects and the user (World Scale). Includes a **High-Precision Mode** (0.1x damping) and proportional locomotion scaling.
+- **🎙️ AI Voice & Spatial Intent**: Integrated NLP engine for processing deictic and spatial commands. Commands like "spawn this here" or "delete that" use real-time raycasting and spatial context to map intent to world actions.
 - **🎨 Nodal Material Editor**: A visual-ready shader graph system for creating complex, dynamic materials and effects.
+
 - **🧩 Advanced Logic Bricks**: Professional-grade behavioral system (Sensors, Controllers, Actuators) with expanded support for Web3 wallets, Mining telemetry, and the new **Swap Scale** exchange system.
+- **⚡ Custom Asset Pipelines**: Support for dynamic, remote asset manifests. Users can register custom JSON-based asset banks via URL, which persist across sessions and automatically merge with the core engine registry.
 - **🛠️ Professional Editor Tools**: 
+    - **Modernized AssetBank**: Nodal-style accordion interface for high-density asset management and rapid search.
     - **XR Spatial Outliner**: Interactive 3D "Bolt Tablet" for in-scene management, projecting the hierarchical Outliner into 3D space.
     - **⚡ Spatial Duplication**: Deep-cloning system for 3D assets and logic nodes, complemented by a floating XR toolbar for rapid manipulation.
+
     - **Undo/Redo** history and state restoration.
     - Transform Gizmos for precise object manipulation.
     - Specialized panels for Networking, Optimization, Audio, and Inventories.

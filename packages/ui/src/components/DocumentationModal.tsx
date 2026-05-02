@@ -67,14 +67,26 @@ export const DocumentationModal = ({ isOpen, onClose }: any) => {
                 </div>
 
                 <div class="doc-section" style="margin-top: 40px;">
-                    <h2 style="color: #22d3ee; border-bottom: 2px solid #22d3ee; display: inline-block; padding-right: 20px; margin-bottom: 15px;">5. Spatial Finance (XR)</h2>
-                    <p style="line-height: 1.6; opacity: 0.9;">The engine supports immersive Web3 workflows:</p>
+                    <h2 style="color: #22d3ee; border-bottom: 2px solid #22d3ee; display: inline-block; padding-right: 20px; margin-bottom: 15px;">5. Spatial Design & XR Scaling</h2>
+                    <p style="line-height: 1.6; opacity: 0.9;">The engine supports high-fidelity immersive manipulation:</p>
                     <ul style="list-style: none; padding: 0;">
+                        <li style="margin-bottom: 10px;"><strong style="color: #00ff88;">Dynamic Scaling:</strong> Access the <strong>Scale Menu</strong> via the Radial Menu (Squeeze). Choose <strong>Object Mode</strong> or <strong>World Mode</strong>, then use a two-handed "grip-and-stretch" gesture to scale.</li>
+                        <li style="margin-bottom: 10px;"><strong style="color: #00ff88;">Precision Mode:</strong> Toggle <strong>Precision</strong> in the Scale menu to reduce gesture sensitivity by 90% for fine-tuned adjustments.</li>
+                        <li style="margin-bottom: 10px;"><strong style="color: #00ff88;">World Scale:</strong> Scaling yourself (World Mode) automatically scales movement speeds and teleport ranges to maintain natural traversal.</li>
                         <li style="margin-bottom: 10px;"><strong style="color: #00ff88;">Bolt Tablet:</strong> Spawnable in-scene outliner for hierarchical management in XR.</li>
-                        <li style="margin-bottom: 10px;"><strong style="color: #00ff88;">Swap Scale:</strong> A procedural 3D scale for executing asset swaps and verifying liquidity balances.</li>
-                        <li style="margin-bottom: 10px;"><strong style="color: #00ff88;">Orderbooks:</strong> High-performance matching engine logic for limit order placement via the economics subsystem.</li>
                     </ul>
                 </div>
+
+                <div class="doc-section" style="margin-top: 40px;">
+                    <h2 style="color: #6366f1; border-bottom: 2px solid #6366f1; display: inline-block; padding-right: 20px; margin-bottom: 15px;">6. Asset Pipeline & Custom Banks</h2>
+                    <p style="line-height: 1.6; opacity: 0.9;">Extend the engine's built-in library with your own assets:</p>
+                    <ul style="list-style: none; padding: 0;">
+                        <li style="margin-bottom: 10px;"><strong style="color: #00ff88;">Remote Manifests:</strong> In the <strong>Settings Modal</strong>, you can provide a URL to a custom JSON asset bank.</li>
+                        <li style="margin-bottom: 10px;"><strong style="color: #00ff88;">Auto-Persistence:</strong> Custom asset URLs are saved to your browser's local storage and reloaded automatically on editor launch.</li>
+                        <li style="margin-bottom: 10px;"><strong style="color: #00ff88;">Physics Sync:</strong> All imported assets automatically process `userData` for collision and rigidbody properties.</li>
+                    </ul>
+                </div>
+
 
                 <div style="margin-top: 60px; text-align: center; font-size: 12px; opacity: 0.5; border-top: 1px solid #1e293b; padding-top: 20px;">
                     Press <kbd style="background: #334155; padding: 2px 6px; border-radius: 4px;">F12</kbd> (or the Help menu) to return to this documentation at any time.
