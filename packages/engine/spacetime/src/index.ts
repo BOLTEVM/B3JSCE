@@ -68,6 +68,11 @@ const ZKLobbyConfig = {
     grid_resolution: t.f32(),          // 10 world units by default
     max_move_speed: t.f32(),
     max_inventory_slots: t.u32(),
+    // Voice policy
+    voice_proximity_enabled: t.bool(),
+    voice_zone_enabled: t.bool(),
+    voice_ptt_required: t.bool(),
+    voice_broadcast_allowed: t.bool(),
 };
 
 /**
@@ -116,12 +121,46 @@ const ChatMsg = {
     lobby_id: t.string().index(),
     sender_identity: t.identity(),
     sender_name: t.string(),
-    channel: t.string(),            // 'public' | 'friends' | 'whisper' | 'zone'
+    channel: t.string(),            // 'public' | 'friends' | 'whisper' | 'zone' | 'proximity'
     content: t.string(),            // Plaintext (empty for private channels)
     commitment: t.string(),         // Poseidon hash for integrity
     encrypted_payload: t.string(),  // Encrypted content (for private channels)
     whisper_target: t.string(),     // Target identity hex (for whispers)
     created_at: t.u64(),
+};
+
+/**
+ * VoiceSignal — WebRTC signaling relay through SpacetimeDB.
+ *
+ * SDP offers, answers, and ICE candidates are relayed between peers
+ * without requiring a separate WebSocket signaling server.
+ */
+const VoiceSignal = {
+    id: t.string().primaryKey(),
+    lobby_id: t.string().index(),
+    sender_identity: t.identity(),
+    target_identity: t.identity(),
+    signal_type: t.string(),     // 'offer' | 'answer' | 'candidate'
+    payload: t.string(),         // SDP or ICE candidate JSON
+    timestamp: t.u64(),
+};
+
+/**
+ * VoiceState — Server-authoritative voice state per player.
+ *
+ * Tracks each player's current mic mode, admin mute status, and
+ * broadcast permission. Used for admin enforcement — clients
+ * subscribe to this table to react to admin commands.
+ */
+const VoiceState = {
+    id: t.string().primaryKey(),
+    lobby_id: t.string().index(),
+    player_identity: t.identity(),
+    mic_mode: t.string(),        // VoiceMicMode: 'proximity' | 'broadcast' | 'zone' | 'push_to_talk' | 'muted'
+    admin_muted: t.bool(),       // Server-authoritative admin mute
+    has_broadcast: t.bool(),     // Granted broadcast permission
+    ptt_active: t.bool(),        // Whether PTT key is held
+    timestamp: t.u64(),
 };
 
 const spacetimedb = schema({
@@ -133,6 +172,8 @@ const spacetimedb = schema({
     ZKZone: table({ public: true }, ZKZone),
     Friendship: table({ public: true }, Friendship),
     ChatMsg: table({ public: true }, ChatMsg),
+    VoiceSignal: table({ public: true }, VoiceSignal),
+    VoiceState: table({ public: true }, VoiceState),
 });
 
 export default spacetimedb;
@@ -357,6 +398,10 @@ export const configure_zk_lobby = spacetimedb.reducer(
         grid_resolution: t.f32(),
         max_move_speed: t.f32(),
         max_inventory_slots: t.u32(),
+        voice_proximity_enabled: t.bool(),
+        voice_zone_enabled: t.bool(),
+        voice_ptt_required: t.bool(),
+        voice_broadcast_allowed: t.bool(),
     },
     (ctx, config) => {
         // Verify the caller is the lobby owner
@@ -374,6 +419,10 @@ export const configure_zk_lobby = spacetimedb.reducer(
             existing.grid_resolution = config.grid_resolution;
             existing.max_move_speed = config.max_move_speed;
             existing.max_inventory_slots = config.max_inventory_slots;
+            existing.voice_proximity_enabled = config.voice_proximity_enabled;
+            existing.voice_zone_enabled = config.voice_zone_enabled;
+            existing.voice_ptt_required = config.voice_ptt_required;
+            existing.voice_broadcast_allowed = config.voice_broadcast_allowed;
             ctx.db.ZKLobbyConfig.lobby_id.update(existing);
         } else {
             ctx.db.ZKLobbyConfig.insert({
@@ -384,6 +433,10 @@ export const configure_zk_lobby = spacetimedb.reducer(
                 grid_resolution: config.grid_resolution,
                 max_move_speed: config.max_move_speed,
                 max_inventory_slots: config.max_inventory_slots,
+                voice_proximity_enabled: config.voice_proximity_enabled,
+                voice_zone_enabled: config.voice_zone_enabled,
+                voice_ptt_required: config.voice_ptt_required,
+                voice_broadcast_allowed: config.voice_broadcast_allowed,
             });
         }
     }
@@ -583,7 +636,7 @@ export const send_chat_message = spacetimedb.reducer(
     },
     (ctx, msg) => {
         // Validate channel
-        const validChannels = ['public', 'friends', 'whisper', 'zone'];
+        const validChannels = ['public', 'friends', 'whisper', 'zone', 'proximity'];
         if (!validChannels.includes(msg.channel)) {
             throw new Error(`Invalid chat channel: ${msg.channel}`);
         }
@@ -618,5 +671,348 @@ export const send_chat_message = spacetimedb.reducer(
             whisper_target: msg.whisper_target,
             created_at: BigInt(Date.now()),
         });
+    }
+);
+
+// ─── Voice Reducers ─────────────────────────────────────────────────
+
+/**
+ * Relay a WebRTC signaling message through SpacetimeDB.
+ * Ephemeral — signals are stored briefly and auto-cleaned.
+ */
+export const send_voice_signal = spacetimedb.reducer(
+    {
+        target_identity: t.identity(),
+        signal_type: t.string(),
+        payload: t.string(),
+    },
+    (ctx, data) => {
+        const validTypes = ['offer', 'answer', 'candidate'];
+        if (!validTypes.includes(data.signal_type)) {
+            throw new Error(`Invalid signal type: ${data.signal_type}`);
+        }
+
+        // Find the sender's lobby
+        let lobbyId = '';
+        if (ctx.connectionId) {
+            for (const p of ctx.db.Player.iter()) {
+                if (p.connection_id.isEqual(ctx.connectionId)) {
+                    lobbyId = p.lobby_id;
+                    break;
+                }
+            }
+        }
+
+        ctx.db.VoiceSignal.insert({
+            id: `vs_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+            lobby_id: lobbyId,
+            sender_identity: ctx.sender,
+            target_identity: data.target_identity,
+            signal_type: data.signal_type,
+            payload: data.payload,
+            timestamp: BigInt(Date.now()),
+        });
+
+        // Prune old signals (>15s old)
+        const now = BigInt(Date.now());
+        const maxAge = BigInt(15000);
+        for (const sig of ctx.db.VoiceSignal.iter()) {
+            if (now - sig.timestamp > maxAge) {
+                ctx.db.VoiceSignal.id.delete(sig.id);
+            }
+        }
+    }
+);
+
+/**
+ * Update the caller's own voice state (mic mode, PTT).
+ * Validates broadcast mode — only allowed if admin or has_broadcast.
+ */
+export const update_voice_state = spacetimedb.reducer(
+    {
+        mic_mode: t.string(),
+        ptt_active: t.bool(),
+    },
+    (ctx, data) => {
+        const validModes = ['proximity', 'broadcast', 'zone', 'push_to_talk', 'muted'];
+        if (!validModes.includes(data.mic_mode)) {
+            throw new Error(`Invalid mic mode: ${data.mic_mode}`);
+        }
+
+        // Find or create VoiceState for this player
+        let existing = null;
+        let lobbyId = '';
+        if (ctx.connectionId) {
+            for (const p of ctx.db.Player.iter()) {
+                if (p.connection_id.isEqual(ctx.connectionId)) {
+                    lobbyId = p.lobby_id;
+                    break;
+                }
+            }
+        }
+
+        for (const vs of ctx.db.VoiceState.iter()) {
+            if (vs.player_identity.isEqual(ctx.sender)) {
+                existing = vs;
+                break;
+            }
+        }
+
+        // Validate lobby voice policy
+        let lobbyConfig = null;
+        for (const config of ctx.db.ZKLobbyConfig.iter()) {
+            if (config.lobby_id === lobbyId) {
+                lobbyConfig = config;
+                break;
+            }
+        }
+
+        if (lobbyConfig) {
+            if (lobbyConfig.voice_ptt_required && data.mic_mode === 'proximity') {
+                throw new Error('Lobby enforces Push-to-Talk. Open mic (proximity) is not allowed.');
+            }
+            if (!lobbyConfig.voice_zone_enabled && data.mic_mode === 'zone') {
+                throw new Error('Zone voice mode is disabled in this lobby.');
+            }
+        }
+
+        // Validate broadcast permission
+        if (data.mic_mode === 'broadcast') {
+            // Check if sender is lobby owner
+            let isOwner = false;
+            for (const lobby of ctx.db.Lobby.iter()) {
+                if (lobby.id === lobbyId && lobby.owner_id.isEqual(ctx.sender)) {
+                    isOwner = true;
+                    break;
+                }
+            }
+            if (!isOwner && existing && !existing.has_broadcast) {
+                throw new Error('Broadcast mode requires admin or broadcast permission.');
+            }
+        }
+
+        // Check admin mute
+        if (existing && existing.admin_muted && data.mic_mode !== 'muted') {
+            throw new Error('Cannot change mic mode while admin-muted.');
+        }
+
+        if (existing) {
+            const updated = { ...existing, mic_mode: data.mic_mode, ptt_active: data.ptt_active, timestamp: BigInt(Date.now()) };
+            ctx.db.VoiceState.id.update(updated);
+        } else {
+            ctx.db.VoiceState.insert({
+                id: `vstate_${ctx.sender.toHexString().substring(0, 12)}`,
+                lobby_id: lobbyId,
+                player_identity: ctx.sender,
+                mic_mode: data.mic_mode,
+                admin_muted: false,
+                has_broadcast: false,
+                ptt_active: data.ptt_active,
+                timestamp: BigInt(Date.now()),
+            });
+        }
+    }
+);
+
+/**
+ * Admin: mute a specific player. Only callable by lobby owner.
+ */
+export const admin_mute_player = spacetimedb.reducer(
+    {
+        lobby_id: t.string(),
+        target_identity: t.identity(),
+    },
+    (ctx, data) => {
+        // Verify caller is lobby owner
+        let isOwner = false;
+        for (const lobby of ctx.db.Lobby.iter()) {
+            if (lobby.id === data.lobby_id && lobby.owner_id.isEqual(ctx.sender)) {
+                isOwner = true;
+                break;
+            }
+        }
+        if (!isOwner) throw new Error('Only the lobby owner can mute players.');
+
+        for (const vs of ctx.db.VoiceState.iter()) {
+            if (vs.player_identity.isEqual(data.target_identity) && vs.lobby_id === data.lobby_id) {
+                const updated = { ...vs, admin_muted: true, mic_mode: 'muted', timestamp: BigInt(Date.now()) };
+                ctx.db.VoiceState.id.update(updated);
+                return;
+            }
+        }
+
+        // Create muted state if it doesn't exist
+        ctx.db.VoiceState.insert({
+            id: `vstate_${data.target_identity.toHexString().substring(0, 12)}`,
+            lobby_id: data.lobby_id,
+            player_identity: data.target_identity,
+            mic_mode: 'muted',
+            admin_muted: true,
+            has_broadcast: false,
+            ptt_active: false,
+            timestamp: BigInt(Date.now()),
+        });
+    }
+);
+
+/**
+ * Admin: unmute a specific player.
+ */
+export const admin_unmute_player = spacetimedb.reducer(
+    {
+        lobby_id: t.string(),
+        target_identity: t.identity(),
+    },
+    (ctx, data) => {
+        let isOwner = false;
+        for (const lobby of ctx.db.Lobby.iter()) {
+            if (lobby.id === data.lobby_id && lobby.owner_id.isEqual(ctx.sender)) {
+                isOwner = true;
+                break;
+            }
+        }
+        if (!isOwner) throw new Error('Only the lobby owner can unmute players.');
+
+        for (const vs of ctx.db.VoiceState.iter()) {
+            if (vs.player_identity.isEqual(data.target_identity) && vs.lobby_id === data.lobby_id) {
+                const updated = { ...vs, admin_muted: false, mic_mode: 'proximity', timestamp: BigInt(Date.now()) };
+                ctx.db.VoiceState.id.update(updated);
+                return;
+            }
+        }
+    }
+);
+
+/**
+ * Admin: global mute all non-owner players in a lobby.
+ */
+export const admin_global_mute = spacetimedb.reducer(
+    { lobby_id: t.string() },
+    (ctx, data) => {
+        let isOwner = false;
+        for (const lobby of ctx.db.Lobby.iter()) {
+            if (lobby.id === data.lobby_id && lobby.owner_id.isEqual(ctx.sender)) {
+                isOwner = true;
+                break;
+            }
+        }
+        if (!isOwner) throw new Error('Only the lobby owner can global mute.');
+
+        for (const vs of ctx.db.VoiceState.iter()) {
+            if (vs.lobby_id === data.lobby_id && !vs.player_identity.isEqual(ctx.sender)) {
+                const updated = { ...vs, admin_muted: true, mic_mode: 'muted', timestamp: BigInt(Date.now()) };
+                ctx.db.VoiceState.id.update(updated);
+            }
+        }
+    }
+);
+
+/**
+ * Admin: lift global mute on all players in a lobby.
+ */
+export const admin_global_unmute = spacetimedb.reducer(
+    { lobby_id: t.string() },
+    (ctx, data) => {
+        let isOwner = false;
+        for (const lobby of ctx.db.Lobby.iter()) {
+            if (lobby.id === data.lobby_id && lobby.owner_id.isEqual(ctx.sender)) {
+                isOwner = true;
+                break;
+            }
+        }
+        if (!isOwner) throw new Error('Only the lobby owner can global unmute.');
+
+        for (const vs of ctx.db.VoiceState.iter()) {
+            if (vs.lobby_id === data.lobby_id && !vs.player_identity.isEqual(ctx.sender)) {
+                const updated = { ...vs, admin_muted: false, mic_mode: 'proximity', timestamp: BigInt(Date.now()) };
+                ctx.db.VoiceState.id.update(updated);
+            }
+        }
+    }
+);
+
+/**
+ * Admin: grant broadcast permission to a player.
+ */
+export const admin_grant_broadcast = spacetimedb.reducer(
+    {
+        lobby_id: t.string(),
+        target_identity: t.identity(),
+    },
+    (ctx, data) => {
+        let isOwner = false;
+        for (const lobby of ctx.db.Lobby.iter()) {
+            if (lobby.id === data.lobby_id && lobby.owner_id.isEqual(ctx.sender)) {
+                isOwner = true;
+                break;
+            }
+        }
+        if (!isOwner) throw new Error('Only the lobby owner can grant broadcast.');
+
+        for (const vs of ctx.db.VoiceState.iter()) {
+            if (vs.player_identity.isEqual(data.target_identity) && vs.lobby_id === data.lobby_id) {
+                const updated = { ...vs, has_broadcast: true, timestamp: BigInt(Date.now()) };
+                ctx.db.VoiceState.id.update(updated);
+                return;
+            }
+        }
+    }
+);
+
+/**
+ * Admin: revoke broadcast permission from a player.
+ */
+export const admin_revoke_broadcast = spacetimedb.reducer(
+    {
+        lobby_id: t.string(),
+        target_identity: t.identity(),
+    },
+    (ctx, data) => {
+        let isOwner = false;
+        for (const lobby of ctx.db.Lobby.iter()) {
+            if (lobby.id === data.lobby_id && lobby.owner_id.isEqual(ctx.sender)) {
+                isOwner = true;
+                break;
+            }
+        }
+        if (!isOwner) throw new Error('Only the lobby owner can revoke broadcast.');
+
+        for (const vs of ctx.db.VoiceState.iter()) {
+            if (vs.player_identity.isEqual(data.target_identity) && vs.lobby_id === data.lobby_id) {
+                const updated = { ...vs, has_broadcast: false, mic_mode: vs.mic_mode === 'broadcast' ? 'proximity' : vs.mic_mode, timestamp: BigInt(Date.now()) };
+                ctx.db.VoiceState.id.update(updated);
+                return;
+            }
+        }
+    }
+);
+
+/**
+ * Cleanly leave a lobby and clean up state.
+ */
+export const leave_lobby = spacetimedb.reducer(
+    {},
+    (ctx) => {
+        if (!ctx.connectionId) return;
+        const player = ctx.db.Player.connection_id.find(ctx.connectionId);
+        if (!player) return;
+
+        // Remove player
+        ctx.db.Player.connection_id.delete(ctx.connectionId);
+
+        // Remove VoiceState
+        for (const vs of ctx.db.VoiceState.iter()) {
+            if (vs.player_identity.isEqual(ctx.sender)) {
+                ctx.db.VoiceState.id.delete(vs.id);
+                break;
+            }
+        }
+
+        // Remove pending VoiceSignals associated with this player
+        for (const sig of ctx.db.VoiceSignal.iter()) {
+            if (sig.sender_identity.isEqual(ctx.sender) || sig.target_identity.isEqual(ctx.sender)) {
+                ctx.db.VoiceSignal.id.delete(sig.id);
+            }
+        }
     }
 );

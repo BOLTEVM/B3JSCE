@@ -17,12 +17,14 @@ export class AudioReactiveActuator extends Actuator {
             dataIn(this.id, 'Band', 'string', 'volume'), // volume, bass, mid, treble
             dataIn(this.id, 'ScaleMult', 'number', 1.0),
             dataIn(this.id, 'Intensity', 'number', 1.0),
-            dataIn(this.id, 'Color', 'color', '#ffffff'),
+            dataIn(this.id, 'Color', 'string', '#ffffff'),
             dataIn(this.id, 'MeshName', 'string', '')
         ];
     }
 
     getTypeName() { return 'AudioReactiveActuator'; }
+
+    execute(delta: number, b3obj: any, engine: any) {}
 
     update(delta: number, b3obj: any, engine: any) {
         if (!engine || !engine.audio || !b3obj || !b3obj.object) return;
@@ -89,6 +91,8 @@ export class SpinnerActuator extends Actuator {
 
     getTypeName() { return 'SpinnerActuator'; }
 
+    execute(delta: number, b3obj: any, engine: any) {}
+
     update(delta: number, b3obj: any, engine: any) {
         if (!b3obj || !b3obj.object) return;
 
@@ -135,6 +139,8 @@ export class VideoPlayerActuator extends Actuator {
     }
 
     getTypeName() { return 'VideoPlayerActuator'; }
+
+    execute(delta: number, b3obj: any, engine: any) {}
 
     update(delta: number, b3obj: any, engine: any) {
         if (!b3obj || !b3obj.object || this.initialized) return;

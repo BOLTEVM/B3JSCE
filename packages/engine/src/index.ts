@@ -28,6 +28,7 @@ import { VoiceManager } from './services/VoiceManager';
 import { HapticsManager } from './haptics';
 import { ZKManager, CommitmentStore, ZKSocialManager } from '@b3js/zk';
 import { FogOverlay } from './rendering/FogOverlay';
+import { ProximityManager } from './proximity';
 
 // ─── Core Module Re-exports ────────────────────────────────────
 
@@ -163,6 +164,7 @@ export class B3Engine {
     public zk: ZKManager = new ZKManager();
     public fogOverlay!: FogOverlay;
     public social: ZKSocialManager;
+    public proximity: ProximityManager;
     projects: ProjectManager = new ProjectManager();
 
     activeProjectId: string | null = null;
@@ -605,6 +607,9 @@ export class B3Engine {
 
         // ZK Social — Friends, Block List, Chat
         this.social = new ZKSocialManager(this.zk);
+
+        // Proximity Voice & Text Manager
+        this.proximity = new ProximityManager(this);
 
         this.world = new CANNON.World();
         this.world.gravity.set(0, -9.82, 0);
@@ -1330,6 +1335,47 @@ self.onmessage = function(e) {
             this.xr.update(delta);
             this.optimizer.update();
             if (this.fogOverlay) this.fogOverlay.update(this.camera.position);
+
+            // Proximity voice & text tick — update nearby players and voice gain
+            if (this.proximity) {
+                const remotePlayers = new Map<string, { position: THREE.Vector3; object: B3Object; zoneId: string | null }>();
+                for (const obj of this.objects) {
+                    if (obj.isRemote && obj.networkId) {
+                        remotePlayers.set(obj.networkId, {
+                            position: obj.object.position,
+                            object: obj,
+                            zoneId: null, // Determined by ZK zone containment check
+                        });
+                    }
+                }
+                // Find local player zone
+                let localZoneId: string | null = null;
+                if (this.zk.activeZones.length > 0) {
+                    const camPos = this.camera.position;
+                    for (const zone of this.zk.activeZones) {
+                        const dx = camPos.x - zone.center.x;
+                        const dy = camPos.y - zone.center.y;
+                        const dz = camPos.z - zone.center.z;
+                        if (Math.sqrt(dx*dx + dy*dy + dz*dz) <= zone.radius) {
+                            localZoneId = zone.id;
+                            break;
+                        }
+                    }
+                    // Also check which zone each remote player is in
+                    for (const [id, rp] of remotePlayers) {
+                        for (const zone of this.zk.activeZones) {
+                            const dx = rp.position.x - zone.center.x;
+                            const dy = rp.position.y - zone.center.y;
+                            const dz = rp.position.z - zone.center.z;
+                            if (Math.sqrt(dx*dx + dy*dy + dz*dz) <= zone.radius) {
+                                rp.zoneId = zone.id;
+                                break;
+                            }
+                        }
+                    }
+                }
+                this.proximity.tick(this.camera.position, remotePlayers, localZoneId);
+            }
 
             // Audio Spectrum Update
             if (this.audio.isReady()) {

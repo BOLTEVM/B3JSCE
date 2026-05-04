@@ -15,7 +15,33 @@ export class SpacetimeManager {
 
     private readonly CACHE_KEY = 'B3JS_OFFLINE_CACHE';
 
-    constructor(private engine: B3Engine) {}
+    constructor(private engine: B3Engine) {
+        window.addEventListener('b3js:voice:signal', (e: any) => {
+            if (this.isOnline && this.conn?.reducers?.send_voice_signal) {
+                this.conn.reducers.send_voice_signal(
+                    e.detail.targetIdentity,
+                    e.detail.signalType,
+                    e.detail.payload
+                );
+            }
+        });
+
+        window.addEventListener('b3js:voice:ice_candidate', (e: any) => {
+            if (this.isOnline && this.conn?.reducers?.send_voice_signal) {
+                this.conn.reducers.send_voice_signal(
+                    e.detail.targetIdentity,
+                    'candidate',
+                    e.detail.candidate
+                );
+            }
+        });
+
+        window.addEventListener('b3js:voice:leave_lobby', () => {
+            if (this.isOnline && this.conn?.reducers?.leave_lobby) {
+                this.conn.reducers.leave_lobby();
+            }
+        });
+    }
 
     public async connect(url: string, dbName: string) {
         console.log(`B3JS Spacetime: Connecting to ${url}/${dbName}...`);
@@ -81,6 +107,20 @@ export class SpacetimeManager {
         this.conn.db.WorldEntity.onInsert((row: any) => this.syncRemoteObject(row));
         this.conn.db.WorldEntity.onUpdate((oldRow: any, newRow: any) => this.syncRemoteObject(newRow));
         this.conn.db.WorldEntity.onDelete((row: any) => this.removeRemoteObject(row.id));
+
+        if (this.conn.db.VoiceSignal) {
+            this.conn.db.VoiceSignal.onInsert((row: any) => {
+                const localIdentity = this.conn.identity;
+                if (localIdentity && row.target_identity.isEqual(localIdentity)) {
+                    this.engine.proximity.handleSignal(
+                        row.sender_identity.toHexString(),
+                        row.signal_type,
+                        row.payload,
+                        null
+                    );
+                }
+            });
+        }
     }
 
     private syncRemoteObject(row: any) {

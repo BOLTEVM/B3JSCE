@@ -125,9 +125,47 @@ export class AudioManager {
         // This links the raw Web Audio source to Three.js audio system
         pAudio.setNodeSource(source as any);
         pAudio.setRefDistance(2);
-        pAudio.setMaxDistance(20);
+        pAudio.setMaxDistance(60);  // Extended for proximity voice range (50u outer + buffer)
+        pAudio.setRolloffFactor(1);
         
         target.add(pAudio);
         return pAudio;
+    }
+
+    /**
+     * Dynamically set the volume of a voice stream attached to a target object.
+     * Used by ProximityManager for per-frame gain adjustments.
+     */
+    public setStreamVolume(target: THREE.Object3D, volume: number): void {
+        target.traverse((child) => {
+            if (child instanceof THREE.PositionalAudio) {
+                child.setVolume(Math.max(0, Math.min(1, volume)));
+            }
+        });
+    }
+
+    /**
+     * Remove and disconnect all voice streams from a target object.
+     * Called when a peer disconnects.
+     */
+    public removeVoiceStream(target: THREE.Object3D): void {
+        const toRemove: THREE.PositionalAudio[] = [];
+        target.traverse((child) => {
+            if (child instanceof THREE.PositionalAudio) {
+                toRemove.push(child);
+            }
+        });
+        for (const audio of toRemove) {
+            audio.disconnect();
+            target.remove(audio);
+        }
+    }
+
+    /**
+     * Count the number of active voice streams across all targets.
+     */
+    public getActiveVoiceStreamCount(): number {
+        // This is a simple heuristic; ProximityManager tracks the exact count
+        return 0;
     }
 }

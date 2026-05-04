@@ -30,6 +30,9 @@ export type {
     ZKSealedBid,
     ZKWorkerRequest,
     ZKWorkerResponse,
+    VoiceMicMode,
+    ProximityConfig,
+    VoicePolicy,
 } from './types';
 
 // Social Types
@@ -42,4 +45,4 @@ export type {
 } from './social';
 
 // Constants
-export { DEFAULT_ZK_CONFIG } from './types';
+export { DEFAULT_ZK_CONFIG, DEFAULT_PROXIMITY_CONFIG, DEFAULT_VOICE_POLICY } from './types';

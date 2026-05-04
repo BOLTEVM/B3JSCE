@@ -17,6 +17,8 @@ import type {
     ZKZoneDefinition,
 } from './types';
 
+import { DEFAULT_ZK_CONFIG } from './types';
+
 import type { CommitmentStore } from './commitment';
 
 /**
@@ -61,14 +63,7 @@ export class ZKManager {
     private onProofListeners: ((circuitName: string, proof: ZKProof, durationMs: number) => void)[] = [];
 
     /** Active world configuration. */
-    public config: ZKWorldConfig = {
-        fogOfWar: false,
-        sealedInventory: true,
-        sealedBids: true,
-        gridResolution: 10,
-        moveSpeed: 50,
-        maxInventorySlots: 32,
-    };
+    public config: ZKWorldConfig = { ...DEFAULT_ZK_CONFIG };
 
     /** Local commitment vault — manages secrets and Poseidon hashes. */
     public commitmentStore: CommitmentStore | null = null;

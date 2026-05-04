@@ -16,13 +16,13 @@ export interface PhysicsResult {
 function geometryToTrimesh(geo: THREE.BufferGeometry): CANNON.Trimesh {
     const pos = geo.getAttribute('position');
     if (!pos) throw new Error(`glbParser: no position attribute on geometry`);
-    const vertices = new Float32Array(pos.array);
+    const vertices = Array.from(pos.array as ArrayLike<number>);
     if (!geo.index) {
         const indices: number[] = [];
         for (let i = 0; i < pos.count; i++) indices.push(i);
         return new CANNON.Trimesh(vertices, indices);
     }
-    return new CANNON.Trimesh(vertices, Array.from(geo.index.array as Uint16Array | Uint32Array));
+    return new CANNON.Trimesh(vertices, Array.from(geo.index.array as ArrayLike<number>));
 }
 
 function geometryToConvex(geo: THREE.BufferGeometry): CANNON.ConvexPolyhedron {

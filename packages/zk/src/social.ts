@@ -14,6 +14,8 @@
  */
 
 import type { ZKManager } from './ZKManager';
+import type { VoiceMicMode, ProximityConfig } from './types';
+import { DEFAULT_PROXIMITY_CONFIG } from './types';
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -66,7 +68,7 @@ export interface ChatMessage {
     verified: boolean;
 }
 
-export type ChatChannel = 'public' | 'friends' | 'whisper' | 'zone';
+export type ChatChannel = 'public' | 'friends' | 'whisper' | 'zone' | 'proximity';
 
 // ─── Social Manager ─────────────────────────────────────────────
 
@@ -113,6 +115,149 @@ export class ZKSocialManager {
     constructor(private zk: ZKManager) {
         // Restore block list from localStorage
         this.loadBlockList();
+    }
+
+    // ─── Voice & Proximity State ─────────────────────────────
+
+    /** Whether the local microphone stream is active. */
+    public voiceEnabled: boolean = false;
+
+    /** Current microphone broadcast mode. */
+    public voiceMicMode: VoiceMicMode = 'proximity';
+
+    /** True if an admin has force-muted this player (server-authoritative). */
+    public voiceAdminMuted: boolean = false;
+
+    /** Whether this player has been granted broadcast permission by an admin. */
+    public hasBroadcastPermission: boolean = false;
+
+    /** Push-to-talk active state (true while PTT key is held). */
+    public pttActive: boolean = false;
+
+    /** Proximity tuning parameters. */
+    public proximityConfig: ProximityConfig = { ...DEFAULT_PROXIMITY_CONFIG };
+
+    /**
+     * Nearby players with their distance and zone-sharing status.
+     * Updated each tick by the engine's ProximityManager.
+     */
+    public nearbyPlayers: Map<string, { distance: number; inSameZone: boolean }> = new Map();
+
+    /** Voice state change listeners. */
+    private voiceListeners: (() => void)[] = [];
+
+    /**
+     * Update the nearby players map (called from engine ProximityManager each tick).
+     */
+    updateNearbyPlayers(players: Map<string, { distance: number; inSameZone: boolean }>): void {
+        this.nearbyPlayers = players;
+    }
+
+    /**
+     * Check if a player is within proximity range.
+     */
+    isInProximity(identityHex: string): boolean {
+        const p = this.nearbyPlayers.get(identityHex);
+        return p ? p.distance <= this.proximityConfig.outerRadius : false;
+    }
+
+    /**
+     * Compute the volume gain multiplier (0.0–1.0) for a player based on distance
+     * and the current mic mode.
+     *
+     * @param identityHex - The remote player's identity
+     * @param senderMicMode - The remote player's current mic mode
+     * @returns Gain value: 0.0 = silent, 1.0 = full volume
+     */
+    getProximityGain(identityHex: string, senderMicMode: VoiceMicMode = 'proximity'): number {
+        // Broadcast mode from sender → full volume regardless of distance/zone
+        if (senderMicMode === 'broadcast') return 1.0;
+
+        // Sender is muted → silence
+        if (senderMicMode === 'muted') return 0.0;
+
+        const p = this.nearbyPlayers.get(identityHex);
+        if (!p) return 0.0;
+
+        // Zone mode: only hear players in the same zone
+        if (senderMicMode === 'zone') {
+            return p.inSameZone ? 1.0 : 0.0;
+        }
+
+        // Push-to-talk: gain is 0 unless PTT is active on the sender side
+        // (handled by the ProximityManager, we just do distance here)
+
+        // Full privacy zone boundary check
+        // If players are NOT in the same zone, enforce hard silence
+        // (unless sender is broadcasting)
+        if (!p.inSameZone) return 0.0;
+
+        const { innerRadius, outerRadius, falloffCurve } = this.proximityConfig;
+
+        if (p.distance <= innerRadius) return 1.0;
+        if (p.distance >= outerRadius) return 0.0;
+
+        // Normalize distance to 0–1 range between inner and outer
+        const t = (p.distance - innerRadius) / (outerRadius - innerRadius);
+
+        if (falloffCurve === 'exponential') {
+            return Math.pow(1.0 - t, 2.0);
+        }
+        // Linear falloff
+        return 1.0 - t;
+    }
+
+    /**
+     * Set the microphone mode.
+     * Validates that broadcast mode requires admin or granted permission.
+     */
+    setMicMode(mode: VoiceMicMode, isAdmin: boolean = false): boolean {
+        if (this.voiceAdminMuted && mode !== 'muted') {
+            console.warn('B3JS ZK Social: Cannot change mic mode — admin muted.');
+            return false;
+        }
+
+        if (mode === 'broadcast' && !isAdmin && !this.hasBroadcastPermission) {
+            console.warn('B3JS ZK Social: Broadcast mode requires admin or broadcast permission.');
+            return false;
+        }
+
+        this.voiceMicMode = mode;
+        this.notifyVoiceChange();
+
+        window.dispatchEvent(new CustomEvent('b3js:voice:mode_change', {
+            detail: { mode }
+        }));
+
+        return true;
+    }
+
+    /**
+     * Toggle push-to-talk state.
+     */
+    setPTTActive(active: boolean): void {
+        this.pttActive = active;
+    }
+
+    /**
+     * Subscribe to voice state changes.
+     */
+    onVoiceChange(callback: () => void): void {
+        this.voiceListeners.push(callback);
+    }
+
+    private notifyVoiceChange(): void {
+        for (const listener of this.voiceListeners) {
+            listener();
+        }
+    }
+
+    /**
+     * Send a proximity-scoped chat message.
+     * Only delivered to players within outerRadius.
+     */
+    async sendProximityMessage(content: string, lobbyId: string): Promise<ChatMessage | null> {
+        return this.sendMessage(content, 'proximity', lobbyId);
     }
 
     /** Initialize ECDH keys for secure chat */
@@ -455,6 +600,25 @@ export class ZKSocialManager {
         }
 
         this.addMessage(msg);
+    }
+
+    /**
+     * Public method to encrypt arbitrary payloads (e.g. WebRTC signals) for a specific target.
+     */
+    public async encryptPayload(payload: string, targetIdentity: string): Promise<string> {
+        return this.encryptForChannel(payload, 'whisper', targetIdentity);
+    }
+
+    /**
+     * Public method to decrypt arbitrary payloads from a specific sender.
+     */
+    public async decryptPayload(encryptedPayload: string, senderIdentity: string): Promise<string | null> {
+        const mockMsg: ChatMessage = {
+            id: '', senderIdentity, senderName: '', lobbyId: '', channel: 'whisper',
+            content: null, commitment: '', encryptedPayload, whisperTarget: this.localIdentity,
+            timestamp: 0, verified: true
+        };
+        return this.decryptMessage(mockMsg);
     }
 
     /**

@@ -24,6 +24,7 @@ From high-fidelity tactical simulations to decentralized virtual worlds, B3JS pr
 - **🦴 Dynamic Skeleton & Procedural IK**: Native extraction of `THREE.Bone` hierarchies from GLTF imports. Logic Bricks like `BoneLookAtActuator` provide dynamic procedural aiming, head tracking, and IK recoil out-of-the-box.
 - **🥽 XR Locomotion Ready**: Hardcoded index limitations resolved with dynamic dominant-handedness detection and patched memory leaks for seamless headset experiences.
 - **📏 Dynamic XR Scale System**: Advanced two-handed "grip-and-stretch" gestures for scaling both objects and the user (World Scale). Includes a **High-Precision Mode** (0.1x damping) and proportional locomotion scaling.
+- **🎙️ Proximity Voice & Secure Communications**: Integrated WebRTC spatial audio system using `THREE.PositionalAudio`. Includes multiple mic modes (Proximity, Broadcast, Zone, PTT) completely secured with AES-GCM encrypted WebRTC signaling via SpacetimeDB.
 - **🎙️ AI Voice & Spatial Intent**: Integrated NLP engine for processing deictic and spatial commands. Commands like "spawn this here" or "delete that" use real-time raycasting and spatial context to map intent to world actions.
 - **🎨 Nodal Material Editor**: A visual-ready shader graph system for creating complex, dynamic materials and effects.
 

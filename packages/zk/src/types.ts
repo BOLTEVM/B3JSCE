@@ -94,6 +94,48 @@ export interface PublishedCommitment {
     timestamp: number;
 }
 
+// ─── Voice & Proximity Types ─────────────────────────────────────
+
+/** Microphone broadcast mode. */
+export type VoiceMicMode = 'proximity' | 'broadcast' | 'zone' | 'push_to_talk' | 'muted';
+
+/** Distance-based falloff configuration for proximity voice & text. */
+export interface ProximityConfig {
+    /** Distance at which volume is 100% (world units). */
+    innerRadius: number;
+    /** Distance at which volume reaches 0% (world units). */
+    outerRadius: number;
+    /** Falloff curve type. */
+    falloffCurve: 'linear' | 'exponential';
+}
+
+/** Default proximity configuration. */
+export const DEFAULT_PROXIMITY_CONFIG: ProximityConfig = {
+    innerRadius: 15,
+    outerRadius: 50,
+    falloffCurve: 'linear',
+};
+
+/** Admin-controlled voice rules for a lobby. */
+export interface VoicePolicy {
+    /** Whether proximity voice mode is available. */
+    proximityEnabled: boolean;
+    /** Whether zone-scoped voice is available. */
+    zoneVoiceEnabled: boolean;
+    /** If true, only push-to-talk mode is permitted (no open mic). */
+    pttRequired: boolean;
+    /** Whether the admin can use broadcast mode. */
+    broadcastAllowed: boolean;
+}
+
+/** Default voice policy. */
+export const DEFAULT_VOICE_POLICY: VoicePolicy = {
+    proximityEnabled: true,
+    zoneVoiceEnabled: true,
+    pttRequired: false,
+    broadcastAllowed: true,
+};
+
 // ─── ZK World Configuration ──────────────────────────────────────
 
 /** Configuration for a ZK-enabled lobby/world. */
@@ -110,6 +152,10 @@ export interface ZKWorldConfig {
     moveSpeed: number;
     /** Maximum items in the inventory circuit. */
     maxInventorySlots: number;
+    /** Voice and proximity communication policy. */
+    voicePolicy: VoicePolicy;
+    /** Proximity falloff settings. */
+    proximityConfig: ProximityConfig;
 }
 
 /** Default ZK world configuration. */
@@ -120,6 +166,8 @@ export const DEFAULT_ZK_CONFIG: ZKWorldConfig = {
     gridResolution: 10,
     moveSpeed: 50,
     maxInventorySlots: 32,
+    voicePolicy: DEFAULT_VOICE_POLICY,
+    proximityConfig: DEFAULT_PROXIMITY_CONFIG,
 };
 
 // ─── ZK Zone Types ───────────────────────────────────────────────
