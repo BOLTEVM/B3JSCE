@@ -72,7 +72,7 @@ export interface IGraphNode {
 export interface NodeInfo {
     type: string;
     label: string;
-    category: 'Event' | 'Flow' | 'Data' | 'Action' | 'Script' | 'Legacy' | 'Economics' | 'Web3';
+    category: 'Event' | 'Flow' | 'Data' | 'Action' | 'Script' | 'Legacy' | 'Economics' | 'Web3' | 'ZK Privacy';
     color: string;
     description: string;
     icon: string;  // Emoji

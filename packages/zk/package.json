@@ -1,0 +1,14 @@
+{
+  "name": "@b3js/zk",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "./src/index.ts",
+  "dependencies": {
+    "snarkjs": "^0.7.0",
+    "circomlibjs": "^0.1.7",
+    "ffjavascript": "^0.3.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest"
+  }
+}

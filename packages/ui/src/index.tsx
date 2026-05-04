@@ -13,6 +13,8 @@ import { LogicEditor } from './components/LogicEditor';
 import { MiningPanel } from './components/MiningPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { XRToolbar } from './components/XRToolbar';
+import { HapticsPanel } from './components/HapticsPanel';
+
 
 type ComponentFn = (props: any) => any;
 
@@ -72,7 +74,8 @@ export class B3Editor extends HTMLElement {
     private wireMousePos: { x: number, y: number } = { x: 0, y: 0 };
     private selectedShaderNode: any | null = null;
     private isResizingLogic: boolean = false;
-    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' | 'assetBank' = 'logic';
+    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' | 'assetBank' | 'haptics' | 'zk' = 'logic';
+
     private miningEventHandlers: Partial<Record<'fractal' | 'quai' | 'qrl', () => void>> = {};
     private documentationShortcutBound: boolean = false;
     private lazyComponents: Record<string, ComponentFn | null> = {
@@ -86,7 +89,10 @@ export class B3Editor extends HTMLElement {
         DocumentationModal: null,
         AboutModal: null,
         AssetBank: null,
+        HapticsPanel: null,
+        ZKPanel: null,
     };
+
     private lazyComponentPromises: Record<string, Promise<void> | null> = {};
 
     private root: HTMLElement;
@@ -526,6 +532,13 @@ export class B3Editor extends HTMLElement {
 
     connectedCallback() {
         this.render();
+        window.addEventListener('b3js:ui:setTab', (e: any) => {
+            if (e.detail) {
+                this.activeBottomTab = e.detail;
+                this.render();
+            }
+        });
+
         if (!this.documentationShortcutBound) {
             window.addEventListener('keydown', this.handleDocumentationShortcut);
             this.documentationShortcutBound = true;
@@ -641,6 +654,7 @@ export class B3Editor extends HTMLElement {
         if (tab === 'inventory') this.loadLazyComponent('InventoryPanel', () => import('./components/InventoryPanel'));
         if (tab === 'robotics') this.loadLazyComponent('RoboticsPanel', () => import('./components/RoboticsPanel'));
         if (tab === 'assetBank') this.loadLazyComponent('AssetBank', () => import('./components/AssetBank'));
+        if (tab === 'zk') this.loadLazyComponent('ZKPanel', () => import('./components/ZKPanel'));
     }
 
     private setBottomTab(tab: typeof this.activeBottomTab) {
@@ -818,6 +832,9 @@ export class B3Editor extends HTMLElement {
         const DocumentationModal = this.lazyComponents.DocumentationModal;
         const AboutModal = this.lazyComponents.AboutModal;
         const AssetBank = this.lazyComponents.AssetBank;
+        const HapticsPanel = this.lazyComponents.HapticsPanel;
+        const ZKPanel = this.lazyComponents.ZKPanel;
+
 
         webjsx.applyDiff(this.root, (
             <div id="editor-root" style={`--accent: ${scheme.accent}; --accent-light: ${scheme.accentLight}; grid-template-rows: 40px 1fr 1fr 4px ${this.logicHeight}px 100px;`}>
@@ -961,8 +978,14 @@ export class B3Editor extends HTMLElement {
                               style="height: 24px; font-size: 9px;"
                               onClick={() => this.setBottomTab('robotics')}>Robotics</div>
                          <div class={`menu-item ${this.activeBottomTab === 'assetBank' ? 'active' : ''}`} 
-                              style="height: 24px; font-size: 9px;"
-                              onClick={() => this.setBottomTab('assetBank')}>Item Bank</div>
+                             style="height: 24px; font-size: 9px;"
+                             onClick={() => this.setBottomTab('assetBank')}>Item Bank</div>
+                        <div class={`menu-item ${this.activeBottomTab === 'haptics' ? 'active' : ''}`} 
+                             style="height: 24px; font-size: 9px;"
+                             onClick={() => this.setBottomTab('haptics')}>Haptics</div>
+                        <div class={`menu-item ${this.activeBottomTab === 'zk' ? 'active' : ''}`} 
+                             style="height: 24px; font-size: 9px; color: #00ff88;"
+                             onClick={() => this.setBottomTab('zk')}>ZK Privacy</div>
                      </div>
                     
                     {this.activeBottomTab === 'logic' && LogicEditor({ 
@@ -997,6 +1020,16 @@ export class B3Editor extends HTMLElement {
                         engine: this.engine,
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'haptics' && (HapticsPanel ? HapticsPanel({ 
+                        engine: this.engine,
+                        onRender: () => this.render()
+                    }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'zk' && (ZKPanel ? ZKPanel({ 
+                        engine: this.engine,
+                        onRender: () => this.render()
+                    }) : this.renderLazyPanel())}
+
+
                 </div>
 
                 <div class="panel outliner">

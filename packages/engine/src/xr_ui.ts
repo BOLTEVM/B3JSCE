@@ -298,3 +298,114 @@ export class XRAiHUD {
         this.group.visible = false;
     }
 }
+
+/**
+ * XRContextMenu: A floating grid of buttons for quick navigation between engine tabs.
+ */
+export class XRContextMenu {
+    public group: THREE.Group;
+    private buttons: THREE.Mesh[] = [];
+    private visible: boolean = false;
+
+    private navItems = [
+        { label: 'Logic', tab: 'logic', color: 0x10b981 },
+        { label: 'Shaders', tab: 'shader', color: 0xa855f7 },
+        { label: 'Audio', tab: 'audio', color: 0xe68523 },
+        { label: 'Network', tab: 'network', color: 0x3b82f6 },
+        { label: 'Optim', tab: 'optimization', color: 0x6366f1 },
+        { label: 'Inv', tab: 'inventory', color: 0xf59e0b },
+        { label: 'Robot', tab: 'robotics', color: 0x06b6d4 },
+        { label: 'Items', tab: 'assetBank', color: 0xec4899 },
+        { label: 'Haptics', tab: 'haptics', color: 0x8b5cf6 }
+    ];
+
+    constructor(private engine: B3Engine) {
+        this.group = new THREE.Group();
+        this.group.visible = false;
+        this.engine.scene.add(this.group);
+        this.createMenu();
+    }
+
+    private createMenu() {
+        const cols = 3;
+        const spacing = 0.12;
+
+        this.navItems.forEach((item, i) => {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+
+            const geo = new THREE.PlaneGeometry(0.1, 0.06);
+            const mat = new THREE.MeshBasicMaterial({ 
+                color: 0x0f172a, 
+                transparent: true, 
+                opacity: 0.9,
+                side: THREE.DoubleSide
+            });
+            const btn = new THREE.Mesh(geo, mat);
+            
+            // Layout: Center the grid
+            btn.position.set(
+                (col - (cols - 1) / 2) * spacing,
+                -(row - 1) * spacing * 0.7,
+                0
+            );
+
+            btn.userData.tab = item.tab;
+            btn.userData.color = item.color;
+
+            // Border/Accent
+            const borderGeo = new THREE.EdgesGeometry(geo);
+            const borderMat = new THREE.LineBasicMaterial({ color: item.color, transparent: true, opacity: 0.5 });
+            const border = new THREE.LineSegments(borderGeo, borderMat);
+            btn.add(border);
+
+            // Label
+            const canvas = document.createElement('canvas');
+            canvas.width = 128; canvas.height = 64;
+            const ctx = canvas.getContext('2d')!;
+            ctx.fillStyle = '#ffffff'; ctx.font = 'bold 24px Inter, Segoe UI';
+            ctx.textAlign = 'center'; ctx.fillText(item.label, 64, 40);
+            
+            const tex = new THREE.CanvasTexture(canvas);
+            const labelMesh = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.04), new THREE.MeshBasicMaterial({ map: tex, transparent: true }));
+            labelMesh.position.set(0, 0, 0.002);
+            btn.add(labelMesh);
+
+            this.group.add(btn);
+            this.buttons.push(btn);
+        });
+    }
+
+    public show(controller: THREE.Group) {
+        this.group.position.copy(controller.position);
+        this.group.quaternion.copy(controller.quaternion);
+        this.group.translateZ(-0.25); // Float slightly further out
+        this.group.translateY(0.15);
+        this.group.visible = true;
+        this.visible = true;
+    }
+
+    public hide() {
+        this.group.visible = false;
+        this.visible = false;
+    }
+
+    public isVisible() { return this.visible; }
+
+    public updateSelection(raycaster: THREE.Raycaster): string | null {
+        if (!this.visible) return null;
+
+        const intersects = raycaster.intersectObjects(this.buttons);
+        this.buttons.forEach(btn => (btn.material as any).color.set(0x0f172a));
+
+        if (intersects.length > 0) {
+            const selected = intersects[0].object as THREE.Mesh;
+            const tab = selected.userData.tab;
+            (selected.material as any).color.set(selected.userData.color);
+            return tab;
+        }
+
+        return null;
+    }
+}
+

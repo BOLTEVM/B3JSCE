@@ -25,8 +25,12 @@ import { B3Web3 } from '@b3js/web3';
 import { processGlbPhysics } from './glbParser';
 import { ASSET_BANK, AssetEntry } from './assets';
 import { VoiceManager } from './services/VoiceManager';
+import { HapticsManager } from './haptics';
+import { ZKManager, CommitmentStore, ZKSocialManager } from '@b3js/zk';
+import { FogOverlay } from './rendering/FogOverlay';
 
 // ─── Core Module Re-exports ────────────────────────────────────
+
 export { B3Object } from './core/B3Object';
 export { HistoryManager, MoveObjectCommand, ScaleObjectCommand, SetPropertyCommand } from './core/history';
 export type { Command } from './core/history';
@@ -67,7 +71,24 @@ import { HistoryManager, MoveObjectCommand, ScaleObjectCommand } from './core/hi
 import { registerShaderNodeType } from './core/registry';
 import { KeyboardSensor, CollisionSensor } from './logic/sensors';
 import { AndController, PythonController } from './logic/controllers';
-import { MotionActuator, InventoryActuator, MiningActuator, SpawnActuator } from './logic/actuators';
+import { 
+    MotionActuator, 
+    MiningActuator, 
+    Web3ConnectActuator, 
+    InventoryActuator, 
+    SpawnActuator,
+    HapticsActuator
+} from './logic/actuators';
+export { 
+    MotionActuator, 
+    MiningActuator, 
+    Web3ConnectActuator, 
+    InventoryActuator, 
+    SpawnActuator,
+    HapticsActuator
+};
+
+
 import { OrderbookActuator, ContractActuator, EventSensor, ShopActuator, ArmoryActuator } from './logic/economics_nodes';
 import { HandGestureSensor, BalanceDisplayActuator } from './logic/spatial_nodes';
 import { WalletActuator, PinPadActuator } from './logic/wallet_nodes';
@@ -138,7 +159,12 @@ export class B3Engine {
     public economics: EconomyManager;
     public web3: typeof B3Web3 = B3Web3;
     public voiceManager: VoiceManager = new VoiceManager(this);
+    public haptics: HapticsManager;
+    public zk: ZKManager = new ZKManager();
+    public fogOverlay!: FogOverlay;
+    public social: ZKSocialManager;
     projects: ProjectManager = new ProjectManager();
+
     activeProjectId: string | null = null;
     pathfinder: any = null;
     pathfinderWorker: Worker | null = null;
@@ -561,7 +587,9 @@ export class B3Engine {
         this.scene.add(this.xrRig);
         this.xrRig.add(this.camera);
         this.xr = new XRManager(this);
+        this.haptics = new HapticsManager(this);
         this.optimizer = new Optimizer(this);
+
         this.vehicles = new VehicleManager(this);
         this.combat = new CombatManager(this);
         this.spacetime = new SpacetimeManager(this);
@@ -569,6 +597,14 @@ export class B3Engine {
         this.digitalTwin = new DigitalTwinSystem(this);
         this.economics = new EconomyManager(this);
         this.mining.init();
+
+        // ZK Privacy System — lazy init (Poseidon + Web Worker)
+        this.zk.commitmentStore = new CommitmentStore(this.zk);
+        this.fogOverlay = new FogOverlay(this);
+        this.zk.init().catch(e => console.warn('B3JS ZK: Async init deferred.', e));
+
+        // ZK Social — Friends, Block List, Chat
+        this.social = new ZKSocialManager(this.zk);
 
         this.world = new CANNON.World();
         this.world.gravity.set(0, -9.82, 0);
@@ -1293,6 +1329,7 @@ self.onmessage = function(e) {
             this.objects.forEach(obj => obj.update(delta, this));
             this.xr.update(delta);
             this.optimizer.update();
+            if (this.fogOverlay) this.fogOverlay.update(this.camera.position);
 
             // Audio Spectrum Update
             if (this.audio.isReady()) {
@@ -1498,6 +1535,8 @@ self.onmessage = function(e) {
     static NavMoveActuator = NavMoveActuator;
     static BoneLookAtActuator = BoneLookAtActuator;
     static BoneTransformActuator = BoneTransformActuator;
+    static HapticsActuator = HapticsActuator;
+
 
     static ColorNode = ColorNode;
     static PositionNode = PositionNode;

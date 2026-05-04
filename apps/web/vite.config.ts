@@ -20,6 +20,7 @@ export default defineConfig({
           if (id.includes('/webjsx/') || id.includes('\\webjsx\\') || id.includes('/nanostores/') || id.includes('\\nanostores\\')) return 'vendor-ui';
           if (id.includes('cbor2') || id.includes('bson') || id.includes('fast-png') || id.includes('iobuffer') || id.includes('fflate') || id.includes('@cto.af')) return 'vendor-codecs';
           if (id.includes('roslib') || id.includes('eventemitter3')) return 'vendor-robotics';
+          if (id.includes('/snarkjs/') || id.includes('\\\\snarkjs\\\\') || id.includes('circomlibjs') || id.includes('ffjavascript')) return 'vendor-zk';
 
           return 'vendor';
         },
@@ -31,6 +32,7 @@ export default defineConfig({
       '@b3js/engine': path.resolve(__dirname, '../../packages/engine/src/index.ts'),
       '@b3js/ui': path.resolve(__dirname, '../../packages/ui/src/index.tsx'),
       '@b3js/web3': path.resolve(__dirname, '../../packages/web3/src/index.ts'),
+      '@b3js/zk': path.resolve(__dirname, '../../packages/zk/src/index.ts'),
     },
   },
   server: {

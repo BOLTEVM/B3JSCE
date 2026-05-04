@@ -1,4 +1,5 @@
 {
+  "$schema": "./tsconfig.schema.json",
   "compilerOptions": {
     "target": "ESNext",
     "module": "ESNext",
@@ -17,13 +18,15 @@
     "paths": {
       "@b3js/engine": ["packages/engine/src/index.ts"],
       "@b3js/ui": ["packages/ui/src/index.tsx"],
-      "@b3js/web3": ["packages/web3/src/index.ts"]
+      "@b3js/web3": ["packages/web3/src/index.ts"],
+      "@b3js/zk": ["packages/zk/src/index.ts"]
     }
   },
   "files": [],
   "references": [
     { "path": "./packages/engine" },
     { "path": "./packages/ui" },
-    { "path": "./packages/web3" }
+    { "path": "./packages/web3" },
+    { "path": "./packages/zk" }
   ]
 }

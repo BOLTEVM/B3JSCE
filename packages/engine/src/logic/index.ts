@@ -12,6 +12,9 @@ export { MotionActuator, MiningActuator, Web3ConnectActuator, InventoryActuator 
 export { AudioReactiveActuator, SpinnerActuator, VideoPlayerActuator } from './bolt_nodes';
 export { SwapSensor, SwapController, SwapActuator } from './swap_nodes';
 
+// ZK Privacy Nodes
+export { ZKZoneSensor, ZKProximitySensor, ZKRevealSensor, ZKCommitActuator, ZKRevealActuator, ZKProveActuator, ZKZoneActuator } from './zk_nodes';
+
 // V2 Pin System
 export { canConnect, PIN_COLORS } from './pins';
 export type { IPin, IConnection, PinDataType, PinDirection } from './pins';
@@ -52,6 +55,7 @@ import { MotionActuator, MiningActuator, InventoryActuator, Web3ConnectActuator 
 import { AudioReactiveActuator, SpinnerActuator, VideoPlayerActuator } from './bolt_nodes';
 import { SwapSensor, SwapController, SwapActuator } from './swap_nodes';
 import { CSharpController } from './csharp';
+import { ZKZoneSensor, ZKProximitySensor, ZKRevealSensor, ZKCommitActuator, ZKRevealActuator, ZKProveActuator, ZKZoneActuator } from './zk_nodes';
 
 // V1 Sensors
 registerSensorType('KeyboardSensor', (d) => KeyboardSensor.fromJSON(d));
@@ -74,6 +78,15 @@ registerActuatorType('AudioReactiveActuator', (d) => AudioReactiveActuator.fromJ
 registerActuatorType('SpinnerActuator', (d) => SpinnerActuator.fromJSON(d));
 registerActuatorType('VideoPlayerActuator', (d) => VideoPlayerActuator.fromJSON(d));
 registerActuatorType('SwapActuator', (d) => SwapActuator.fromJSON(d));
+
+// ZK Privacy Nodes
+registerSensorType('ZKZoneSensor', (d) => ZKZoneSensor.fromJSON(d));
+registerSensorType('ZKProximitySensor', (d) => ZKProximitySensor.fromJSON(d));
+registerSensorType('ZKRevealSensor', (d) => ZKRevealSensor.fromJSON(d));
+registerActuatorType('ZKCommitActuator', (d) => ZKCommitActuator.fromJSON(d));
+registerActuatorType('ZKRevealActuator', (d) => ZKRevealActuator.fromJSON(d));
+registerActuatorType('ZKProveActuator', (d) => ZKProveActuator.fromJSON(d));
+registerActuatorType('ZKZoneActuator', (d) => ZKZoneActuator.fromJSON(d));
 
 // ─── Register V2 Graph Node Types ──────────────────────────────
 import { OnStartNode, OnTickNode, OnKeyNode, OnCollisionNode, OnTimerNode, OnInteractNode } from './nodes/events';

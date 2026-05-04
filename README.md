@@ -18,6 +18,7 @@ From high-fidelity tactical simulations to decentralized virtual worlds, B3JS pr
 ## ✨ Key Features
 
 - **🛡️ Phase 4 Engine Stabilized**: Pure ECS separation. WebWorkers handle intensive pathfinding and AI updates independently, ensuring stable 60+ FPS under heavy logic load. Safe serialization stops Editor Play/Pause data bleeding.
+- **🔐 Zero Knowledge Privacy Infrastructure**: Cryptographically secured multiplayer state including Fog of War overlays, dynamic ZK privacy zones, Sealed Bid inventory mechanics, and AES-GCM encrypted peer-to-peer chat.
 - **🌐 Multiplayer Sync (SpacetimeDB)**: Granular, real-time synchronization of world state. The networking subsystem employs strict Ownership schemas to completely prevent unauthorized remote state manipulation.
 - **🐍 Python & C# Scripting**: Sandboxed behavior logic powered by **Pyodide** and dynamic C# execution contexts.
 - **🦴 Dynamic Skeleton & Procedural IK**: Native extraction of `THREE.Bone` hierarchies from GLTF imports. Logic Bricks like `BoneLookAtActuator` provide dynamic procedural aiming, head tracking, and IK recoil out-of-the-box.

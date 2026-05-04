@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { B3Engine } from './index';
 import { ASSET_BANK } from './assets';
-import { XRRadialMenu, XRGizmo, XRInspectorCard, XRAiHUD } from './xr_ui';
+import { XRRadialMenu, XRGizmo, XRInspectorCard, XRAiHUD, XRContextMenu } from './xr_ui';
 
 export type LocomotionMode = 'Teleport' | 'Fly' | 'Designer' | 'Teleoperation';
+
 
 /**
  * XRManager: Handles WebXR locomotion, controllers, and immersive sessions.
@@ -19,8 +20,10 @@ export class XRManager {
     private gizmo: XRGizmo;
     private inspector: XRInspectorCard;
     private aiHud: XRAiHUD;
+    private contextMenu: XRContextMenu;
     
     private teleportMarker: THREE.Mesh;
+
     private teleportRay: THREE.Line;
     
     private flySpeed: number = 2.0;
@@ -44,15 +47,19 @@ export class XRManager {
     private _intersectPoint = new THREE.Vector3();
     private _flyDir = new THREE.Vector3();
     private primaryControllerIndex: number = 0;
+    private contextBtnPressed: boolean = false;
     
     constructor(private engine: B3Engine) {
+
         this.menu = new XRRadialMenu(this.engine);
         this.gizmo = new XRGizmo();
         this.inspector = new XRInspectorCard();
         this.aiHud = new XRAiHUD();
+        this.contextMenu = new XRContextMenu(this.engine);
         this.engine.scene.add(this.gizmo.group);
         this.engine.scene.add(this.inspector.group);
         this.engine.scene.add(this.aiHud.group);
+
 
         // Setup Teleport Visuals
         const markerGeo = new THREE.RingGeometry(0.1, 0.12, 32);
@@ -157,7 +164,17 @@ export class XRManager {
                     console.log("B3JS XR: Scale Reset to Default");
                 }
             }
+        } else if (this.contextMenu.isVisible()) {
+            const raycaster = this.getControllerRay(index);
+            const tab = this.contextMenu.updateSelection(raycaster);
+            if (tab) {
+                console.log(`B3JS XR: Navigating to Tab -> ${tab}`);
+                window.dispatchEvent(new CustomEvent('b3js:ui:setTab', { detail: tab }));
+                this.contextMenu.hide();
+            }
         } else if (this.mode === 'Teleport' && this.teleportMarker.visible) {
+
+
 
             this.engine.xrRig.position.copy(this.teleportMarker.position);
         } else if (this.mode === 'Designer') {
@@ -228,16 +245,34 @@ export class XRManager {
         const session = this.engine.renderer.xr.getSession();
         if (!session) return;
 
-        // Process Controller Buttons (Voice AI Trigger - Button 4 / Secondary)
+        // Process Controller Buttons
         for (const source of session.inputSources) {
             if (source.gamepad && source.gamepad.buttons.length > 4) {
                 const secondaryBtn = source.gamepad.buttons[4]; // B or Y button
+                const contextBtn = source.gamepad.buttons[3]; // A or X button
+
                 if (secondaryBtn.pressed) {
                     const ctrl = this.controllers[source.handedness === 'left' ? 0 : 1];
                     this.triggerVoiceAI(ctrl);
                 }
+
+                if (contextBtn.pressed && source.handedness === 'left') {
+                    if (!this.contextBtnPressed) {
+                        this.contextBtnPressed = true;
+                        if (this.contextMenu.isVisible()) {
+                            this.contextMenu.hide();
+                        } else {
+                            this.contextMenu.show(this.controllers[0]);
+                            this.menu.hide(); // Don't show both
+                        }
+                    }
+                } else if (!contextBtn.pressed && source.handedness === 'left') {
+                    this.contextBtnPressed = false;
+                }
             }
         }
+
+
 
         // Process Locomotion
         if (this.mode === 'Fly') {

@@ -174,4 +174,74 @@ export class SpacetimeManager {
         const state = this.engine.serialize();
         localStorage.setItem(this.CACHE_KEY, state);
     }
+
+    // ─── Zero Knowledge World Methods ─────────────────────────
+
+    /**
+     * Push a ZK commitment hash to SpacetimeDB.
+     * Other players will see the hash but cannot derive the private state.
+     */
+    public pushZKCommitment(type: string, commitmentHash: string): void {
+        if (!this.isOnline || !this.currentLobbyId) return;
+        console.log(`B3JS Spacetime: Publishing ZK commitment (${type}) → ${commitmentHash.substring(0, 18)}...`);
+
+        this.conn?.reducers?.submit_zk_commitment?.({
+            lobby_id: this.currentLobbyId,
+            commitment_type: type,
+            commitment_hash: commitmentHash,
+            proof: '',
+            public_signals: '[]',
+            timestamp: BigInt(Date.now()),
+        });
+    }
+
+    /**
+     * Push a ZK proof to SpacetimeDB for server-side verification.
+     * The reducer will validate the proof before storing the commitment.
+     */
+    public pushZKProof(circuitName: string, serializedProof: string): void {
+        if (!this.isOnline || !this.currentLobbyId) return;
+        console.log(`B3JS Spacetime: Submitting ZK proof (${circuitName})`);
+
+        this.conn?.reducers?.submit_zk_proof?.({
+            lobby_id: this.currentLobbyId,
+            circuit_name: circuitName,
+            proof_data: serializedProof,
+        });
+    }
+
+    /**
+     * Define or update a ZK privacy zone on the server.
+     */
+    public pushZKZone(zone: any): void {
+        if (!this.isOnline || !this.currentLobbyId) return;
+        console.log(`B3JS Spacetime: Publishing ZK zone "${zone.name}" (policy=${zone.policy})`);
+
+        this.conn?.reducers?.define_zk_zone?.({
+            id: zone.id,
+            lobby_id: this.currentLobbyId,
+            name: zone.name,
+            cx: zone.center.x,
+            cy: zone.center.y,
+            cz: zone.center.z,
+            radius: zone.radius,
+            policy: zone.policy,
+            active: zone.active,
+        });
+    }
+
+    /**
+     * Temporarily reveal private state (broadcast plaintext for a duration).
+     */
+    public pushZKReveal(revealType: string, data: any): void {
+        if (!this.isOnline || !this.currentLobbyId) return;
+        console.log(`B3JS Spacetime: Broadcasting ZK reveal (${revealType}) for ${data.duration}ms`);
+
+        this.conn?.reducers?.reveal_state?.({
+            lobby_id: this.currentLobbyId,
+            reveal_type: revealType,
+            payload: JSON.stringify(data),
+            duration_ms: data.duration || 5000,
+        });
+    }
 }

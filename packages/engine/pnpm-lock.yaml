@@ -17,6 +17,9 @@ importers:
       simplex-noise:
         specifier: ^4.0.3
         version: 4.0.3
+      tact-js:
+        specifier: ^2.0.4
+        version: 2.0.4
       three:
         specifier: latest
         version: 0.184.0
@@ -93,6 +96,9 @@ packages:
 
   simplex-noise@4.0.3:
     resolution: {integrity: sha512-qSE2I4AngLQG7BXqoZj51jokT4WUXe8mOBrvfOXpci8+6Yu44+/dD5zqDpOx3Ux792eamTd2lLcI8jqFntk/lg==}
+
+  tact-js@2.0.4:
+    resolution: {integrity: sha512-XFKIuEOUDaS9sLGVNRCHXCqi+09Rc0rVfSE8n7EbouT5fgqgz9dOJ7oEAtJRFTsjCOMYfOoTgK76acmRd0LnXQ==}
 
   three-mesh-ui@6.5.4:
     resolution: {integrity: sha512-QA2KlHrbj7zGjKqpNXcwvini8g5gOXb44ExdupVpxCqmHln/sWNGOmN0yIa/HjnMGYJWP4M+NchTHvwUp+MWIw==}
@@ -187,6 +193,8 @@ snapshots:
       - utf-8-validate
 
   simplex-noise@4.0.3: {}
+
+  tact-js@2.0.4: {}
 
   three-mesh-ui@6.5.4(three@0.184.0):
     dependencies:

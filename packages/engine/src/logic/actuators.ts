@@ -285,3 +285,51 @@ export class SpawnActuator extends Actuator {
         return n;
     }
 }
+
+/**
+ * HapticsActuator: Triggers bHaptics feedback.
+ */
+export class HapticsActuator extends Actuator {
+    constructor(
+        public eventKey: string = 'impact',
+        public intensity: number = 1.0,
+        public mode: 'Spatial' | 'Global' = 'Spatial',
+        public targetLimb: string = 'Vest'
+    ) {
+        super();
+    }
+
+    getTypeName() { return 'HapticsActuator'; }
+
+    execute(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) {
+        if (!engine.haptics) return;
+
+        if (this.mode === 'Spatial') {
+            engine.haptics.triggerSpatial(this.eventKey, b3obj.object.position, this.intensity);
+        } else {
+            // Global mode: Trigger pattern on specific limb
+            engine.haptics.triggerDots(this.targetLimb, Array(20).fill(this.intensity * 100));
+        }
+    }
+
+    update(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) {}
+
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            type: 'HapticsActuator',
+            eventKey: this.eventKey,
+            intensity: this.intensity,
+            mode: this.mode,
+            targetLimb: this.targetLimb
+        };
+    }
+
+    static fromJSON(data: any): HapticsActuator {
+        const n = new HapticsActuator(data.eventKey, data.intensity, data.mode, data.targetLimb || 'Vest');
+        n.id = data.id; n.guiMetadata = data.guiMetadata; n.enabled = data.enabled;
+        return n;
+    }
+
+}
+
