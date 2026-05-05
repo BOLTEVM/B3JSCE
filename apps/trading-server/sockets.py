@@ -32,43 +32,51 @@ manager = ConnectionManager()
 # For integration purposes, we will simulate the graph stream if needed, 
 # or use LangGraph's streaming capabilities if accessible.
 async def run_trading_graph(ticker: str, target_date: str, config: Dict[str, Any], websocket: WebSocket):
-    # Set the provider key based on the user's config
+    # Extract provider and key
     llm_provider = config.get("llm_provider", "openai")
     api_key = config.get("api_key", "")
     
-    if llm_provider == "openai":
-        os.environ["OPENAI_API_KEY"] = api_key
-    elif llm_provider == "google":
-        os.environ["GOOGLE_API_KEY"] = api_key
-    # Add other providers as needed
+    if not api_key and llm_provider != "ollama":
+        await websocket.send_json({"type": "error", "message": f"API Key required for {llm_provider}"})
+        return
 
+    # Isolated configuration for this specific request
     ta_config = DEFAULT_CONFIG.copy()
-    ta_config["llm_provider"] = llm_provider
-    ta_config["checkpoint_enabled"] = False # simplify for now
+    ta_config.update({
+        "llm_provider": llm_provider,
+        "api_key": api_key,  # Pass directly to avoid global env state
+        "checkpoint_enabled": False,
+        "debug_mode": True
+    })
 
-    # We will wrap the execution to stream updates
-    ta = TradingAgentsGraph(debug=True, config=ta_config)
-
-    # In a real scenario with LangGraph, you'd iterate over the graph events:
-    # async for event in ta.graph.astream({"ticker": ticker, ...}):
-    #     await websocket.send_json({"type": "node_update", "node": node_name, "content": ...})
-    
-    # As a simple wrapper, we'll run propagate() in a thread and send a start/end message
-    await websocket.send_json({"type": "status", "message": f"Starting analysis for {ticker}..."})
+    await websocket.send_json({"type": "status", "message": f"Initializing Agents for {ticker}..."})
     
     try:
-        # Since propagate is synchronous, run it in an executor
+        # Each request gets its own graph instance
+        ta = TradingAgentsGraph(debug=True, config=ta_config)
+
+        await websocket.send_json({"type": "status", "message": f"Running analysis for {ticker} at {target_date}..."})
+        
+        # Execute the graph propagation in a thread to keep the event loop responsive
         loop = asyncio.get_event_loop()
+        # We assume ta.propagate handles the logic correctly
         state, decision = await loop.run_in_executor(None, ta.propagate, ticker, target_date)
         
-        # Send the final decision
         await websocket.send_json({
             "type": "decision",
             "decision": decision,
-            "state": str(state) # simplify the state dump
+            "state": str(state) if state else "No state returned"
         })
+        
     except Exception as e:
-        await websocket.send_json({"type": "error", "message": str(e)})
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"[TradingServer] Error in graph execution: {error_trace}")
+        await websocket.send_json({
+            "type": "error", 
+            "message": f"Simulation Error: {str(e)}",
+            "trace": error_trace if config.get("debug") else None
+        })
 
 
 @router.websocket("/ws/trade")

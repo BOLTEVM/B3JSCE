@@ -55,6 +55,8 @@ export { registerShaderChunk, getShaderChunk, getShaderChunkNames } from './shad
 export * from './ai_nodes';
 export * from './assets';
 export * from './services/VoiceManager';
+export { requestWalletTransaction } from './wallet/integration';
+export type { TradeIntent } from './wallet/integration';
 
 // ─── Factories & Templates ─────────────────────────────────────
 export {

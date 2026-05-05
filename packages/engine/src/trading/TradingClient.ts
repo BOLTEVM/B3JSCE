@@ -1,16 +1,21 @@
 export class TradingClient {
     private ws: WebSocket | null = null;
     private listeners: ((event: any) => void)[] = [];
+    private reconnectAttempts: number = 0;
+    private maxReconnectDelay: number = 30000;
     public active: boolean = false;
 
     constructor(private url: string = "ws://localhost:8001/ws/trade") {}
 
     public connect() {
-        if (this.ws && this.active) return;
+        if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
+        
+        console.log(`[TradingClient] Connecting to ${this.url}...`);
         this.ws = new WebSocket(this.url);
         
         this.ws.onopen = () => {
             this.active = true;
+            this.reconnectAttempts = 0;
             console.log("[TradingClient] Connected to Trading Server");
         };
 
@@ -31,7 +36,15 @@ export class TradingClient {
         this.ws.onclose = () => {
             this.active = false;
             console.log("[TradingClient] Disconnected");
+            this.scheduleReconnect();
         };
+    }
+
+    private scheduleReconnect() {
+        this.reconnectAttempts++;
+        const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), this.maxReconnectDelay);
+        console.log(`[TradingClient] Reconnecting in ${delay}ms (Attempt ${this.reconnectAttempts})`);
+        setTimeout(() => this.connect(), delay);
     }
 
     public startAnalysis(ticker: string, date: string, config: any) {
@@ -43,7 +56,8 @@ export class TradingClient {
                 config
             }));
         } else {
-            console.warn("[TradingClient] Cannot start analysis: WS not open");
+            console.warn("[TradingClient] Cannot start analysis: WS not open. Attempting to connect...");
+            this.connect();
         }
     }
 
