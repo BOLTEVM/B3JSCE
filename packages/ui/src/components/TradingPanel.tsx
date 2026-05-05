@@ -1,5 +1,6 @@
 import * as webjsx from 'webjsx';
 import { tradingClient, requestWalletTransaction } from '@b3js/engine';
+import { B3Web3 } from '@b3js/web3';
 
 let isAnalyzing = false;
 let lastDecision: string | null = null;
@@ -7,12 +8,14 @@ let currentTicker = 'NVDA';
 let currentProvider = 'openai';
 let logEntries: { type: string, content: string, color: string }[] = [];
 let hasConnected = false;
+let vaultPassword = '';
 
 export function TradingPanel({ onRender }: any) {
     let tickerInput: HTMLInputElement;
     let apiKeyInput: HTMLInputElement;
     let providerSelect: HTMLSelectElement;
     let logContainer: HTMLDivElement;
+    let passInput: HTMLInputElement;
 
     // Connect automatically if not already connected
     if (!tradingClient.active && !hasConnected) {
@@ -30,13 +33,6 @@ export function TradingPanel({ onRender }: any) {
             logContainer.scrollTop = logContainer.scrollHeight;
         }
     };
-
-    // Listen to incoming messages (Singleton listener)
-    if (hasConnected && tradingClient.active) {
-        // We assume tradingClient.onMessage replaces or handles multiple listeners correctly
-        // Or we should only register once. 
-        // For simplicity in this environment, we'll check a flag.
-    }
 
     // Set up message handler if not already set
     if (!(tradingClient as any)._hasUIListener) {
@@ -111,13 +107,54 @@ export function TradingPanel({ onRender }: any) {
         }
     };
 
+    const unlockVault = async () => {
+        if (!passInput) return;
+        const success = await B3Web3.vault.unlock(passInput.value);
+        if (success) {
+            appendLog('Vault', 'Hardened Core Unlocked', 'green-400');
+            if (onRender) onRender();
+        } else {
+            alert("Invalid Vault Password");
+        }
+    };
+
     const clearKeys = () => {
         if (apiKeyInput) apiKeyInput.value = '';
         appendLog('System', 'API Keys cleared from local session.', 'gray-500');
     };
 
+    const isVaultLocked = B3Web3.vault.isLocked();
+
     return (
-        <div class="p-4 h-full flex flex-col bg-[#1a1b1e] text-white">
+        <div class="p-4 h-full flex flex-col bg-[#1a1b1e] text-white relative">
+            
+            {/* Vault Lockdown Overlay */}
+            {isVaultLocked && (
+                <div class="absolute inset-0 z-50 bg-black/80 backdrop-blur-md flex flex-col items-center justify-center p-6 text-center">
+                    <i class="fas fa-lock text-4xl text-blue-500 mb-4"></i>
+                    <h3 class="text-xl font-bold mb-2">Vault Lockdown</h3>
+                    <p class="text-xs text-gray-400 mb-6 leading-relaxed">
+                        The hardened wallet core is encrypted. Unlock to enable secure Web3 execution for autonomous agents.
+                    </p>
+                    <input 
+                        ref={(el: any) => { if(el) passInput = el; }}
+                        type="password" 
+                        placeholder="Enter Vault Password"
+                        class="w-full max-w-xs bg-white/5 border border-white/10 rounded px-3 py-2 text-sm mb-4 focus:border-blue-500 outline-none"
+                        onKeyDown={(e: any) => { if(e.key === 'Enter') unlockVault(); }}
+                    />
+                    <button 
+                        onClick={unlockVault}
+                        class="w-full max-w-xs bg-blue-600 hover:bg-blue-500 text-white rounded py-2 text-sm font-medium transition-all"
+                    >
+                        Unlock Hardened Core
+                    </button>
+                    <p class="text-[10px] text-gray-600 mt-4">
+                        Powered by BoltOS OWS-Core v1.0
+                    </p>
+                </div>
+            )}
+
             <h2 class="text-lg font-bold mb-4 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <i class="fas fa-chart-line text-blue-500"></i>
