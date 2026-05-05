@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+websockets
+pydantic
+git+https://github.com/TauricResearch/TradingAgents.git

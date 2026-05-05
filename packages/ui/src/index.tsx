@@ -74,7 +74,7 @@ export class B3Editor extends HTMLElement {
     private wireMousePos: { x: number, y: number } = { x: 0, y: 0 };
     private selectedShaderNode: any | null = null;
     private isResizingLogic: boolean = false;
-    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' | 'assetBank' | 'haptics' | 'zk' = 'logic';
+    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' | 'assetBank' | 'haptics' | 'zk' | 'trading' = 'logic';
 
     private miningEventHandlers: Partial<Record<'fractal' | 'quai' | 'qrl', () => void>> = {};
     private documentationShortcutBound: boolean = false;
@@ -91,6 +91,7 @@ export class B3Editor extends HTMLElement {
         AssetBank: null,
         HapticsPanel: null,
         ZKPanel: null,
+        TradingPanel: null,
     };
 
     private lazyComponentPromises: Record<string, Promise<void> | null> = {};
@@ -136,6 +137,29 @@ export class B3Editor extends HTMLElement {
                     </div>
                 </div>
             ));
+        });
+
+        // Register Spatial Trading Panel
+        this.engine.setSpatialTradingRenderer((container: HTMLElement) => {
+            const renderTrading = () => {
+                const TradingPanel = this.lazyComponents.TradingPanel;
+                webjsx.applyDiff(container, (
+                    <div style="height: 100%; display: flex; flex-direction: column;">
+                        <div style="background: #1e3a8a; padding: 10px; font-weight: bold; font-size: 14px; color: #fff; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-chart-line" style="color: #93c5fd;"></i>
+                            Bolt OS - Trading Agents
+                        </div>
+                        <div style="flex: 1; overflow: hidden; background: #1a1b1e;">
+                            {TradingPanel ? TradingPanel({}) : <div style="padding: 20px; color: #888;">Loading Trading Panel...</div>}
+                        </div>
+                    </div>
+                ));
+            };
+
+            if (!this.lazyComponents.TradingPanel) {
+                this.loadLazyComponent('TradingPanel', () => import('./components/TradingPanel')).then(renderTrading);
+            }
+            renderTrading();
         });
 
         // Register Spatial Toolbar
@@ -634,9 +658,9 @@ export class B3Editor extends HTMLElement {
         this.openDocumentation();
     };
 
-    private loadLazyComponent(name: string, loader: () => Promise<any>) {
-        if (this.lazyComponents[name]) return;
-        if (this.lazyComponentPromises[name]) return;
+    private loadLazyComponent(name: string, loader: () => Promise<any>): Promise<void> {
+        if (this.lazyComponents[name]) return Promise.resolve();
+        if (this.lazyComponentPromises[name]) return this.lazyComponentPromises[name] as Promise<void>;
 
         this.lazyComponentPromises[name] = loader().then((module) => {
             this.lazyComponents[name] = module[name];
@@ -644,6 +668,8 @@ export class B3Editor extends HTMLElement {
         }).finally(() => {
             this.lazyComponentPromises[name] = null;
         });
+        
+        return this.lazyComponentPromises[name] as Promise<void>;
     }
 
     private loadBottomTab(tab: typeof this.activeBottomTab) {
@@ -655,6 +681,7 @@ export class B3Editor extends HTMLElement {
         if (tab === 'robotics') this.loadLazyComponent('RoboticsPanel', () => import('./components/RoboticsPanel'));
         if (tab === 'assetBank') this.loadLazyComponent('AssetBank', () => import('./components/AssetBank'));
         if (tab === 'zk') this.loadLazyComponent('ZKPanel', () => import('./components/ZKPanel'));
+        if (tab === 'trading') this.loadLazyComponent('TradingPanel', () => import('./components/TradingPanel'));
     }
 
     private setBottomTab(tab: typeof this.activeBottomTab) {
@@ -834,6 +861,7 @@ export class B3Editor extends HTMLElement {
         const AssetBank = this.lazyComponents.AssetBank;
         const HapticsPanel = this.lazyComponents.HapticsPanel;
         const ZKPanel = this.lazyComponents.ZKPanel;
+        const TradingPanel = this.lazyComponents.TradingPanel;
 
 
         webjsx.applyDiff(this.root, (
@@ -986,6 +1014,9 @@ export class B3Editor extends HTMLElement {
                         <div class={`menu-item ${this.activeBottomTab === 'zk' ? 'active' : ''}`} 
                              style="height: 24px; font-size: 9px; color: #00ff88;"
                              onClick={() => this.setBottomTab('zk')}>ZK Privacy</div>
+                        <div class={`menu-item ${this.activeBottomTab === 'trading' ? 'active' : ''}`} 
+                             style="height: 24px; font-size: 9px; color: #3b82f6;"
+                             onClick={() => this.setBottomTab('trading')}>Trading Agents</div>
                      </div>
                     
                     {this.activeBottomTab === 'logic' && LogicEditor({ 
@@ -1028,6 +1059,7 @@ export class B3Editor extends HTMLElement {
                         engine: this.engine,
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'trading' && (TradingPanel ? TradingPanel({}) : this.renderLazyPanel())}
 
 
                 </div>

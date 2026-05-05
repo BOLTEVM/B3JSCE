@@ -64,7 +64,7 @@ export {
     createMarketTerminal, createShopKiosk, createWeb3Gateway, createArmoryRack,
     createTokenCoin, createPinPad
 } from './factories';
-export { createDefaultEnvironment, createBoltevmTemplate, createExchangeTemplate, createSpatialWalletTemplate, createSwapScaleTemplate } from './templates';
+export { createDefaultEnvironment, createBoltevmTemplate, createExchangeTemplate, createSpatialWalletTemplate, createSwapScaleTemplate, createTradingAgentsTemplate } from './templates';
 
 // ─── Internal Imports for B3Engine ─────────────────────────────
 import { B3Object } from './core/B3Object';
@@ -226,6 +226,11 @@ export class B3Engine {
         this.spatialUIRenderer = renderer;
     }
 
+    private spatialTradingRenderer: ((container: HTMLElement) => void) | null = null;
+    setSpatialTradingRenderer(renderer: (container: HTMLElement) => void) {
+        this.spatialTradingRenderer = renderer;
+    }
+
     private spatialToolbarRenderer: ((container: HTMLElement) => void) | null = null;
     setSpatialToolbarRenderer(renderer: (container: HTMLElement) => void) {
         this.spatialToolbarRenderer = renderer;
@@ -252,6 +257,37 @@ export class B3Engine {
             container.style.overflow = 'hidden';
             
             this.spatialUIRenderer(container);
+
+            const cssObj = new CSS2DObject(container);
+            cssObj.position.set(0, 0, 0.05); // Slightly in front of screen
+            (screenMesh as any).add(cssObj);
+        }
+
+        this.addObject(tabletObj);
+        return tabletObj;
+    }
+
+    async spawnBoltTabletTrading() {
+        const loader = new GLTFLoader();
+        const gltf = await loader.loadAsync('/models/bolt-tablet.glb');
+        const tabletObj = new B3Object(gltf.scene);
+        tabletObj.name = "Bolt Tablet (Trading Agents)";
+        tabletObj.object.position.set(2, 1, 2);
+        
+        // Find the screen mesh
+        let screenMesh: THREE.Object3D | null = null;
+        gltf.scene.traverse(node => {
+            if (node.name.toLowerCase().includes('screen')) screenMesh = node;
+        });
+
+        if (screenMesh && this.spatialTradingRenderer) {
+            const container = document.createElement('div');
+            container.style.width = '400px';
+            container.style.height = '600px';
+            container.style.background = '#1a1b1e';
+            container.style.overflow = 'hidden';
+            
+            this.spatialTradingRenderer(container);
 
             const cssObj = new CSS2DObject(container);
             cssObj.position.set(0, 0, 0.05); // Slightly in front of screen
@@ -924,6 +960,7 @@ self.onmessage = function(e) {
     // ─── Delegated Factory Methods ─────────────────────────────
     createDefaultEnvironment() { Templates.createDefaultEnvironment(this); }
     async createBoltevmTemplate(name = 'Boltevm World') { await Templates.createBoltevmTemplate(this, name); }
+    createTradingAgentsTemplate() { Templates.createTradingAgentsTemplate(this); }
     createCube(name = "Cube") { return Factories.createCube(this, name); }
     createSphere(name = "Sphere") { return Factories.createSphere(this, name); }
     createLight(name = "PointLight") { return Factories.createLight(this, name); }
@@ -1609,3 +1646,7 @@ self.onmessage = function(e) {
         update() {}
     };
 }
+
+export * from './trading/TradingClient';
+export * from './ecs/systems/TradingSystem';
+export * from './wallet/integration';

@@ -163,6 +163,18 @@ const VoiceState = {
     timestamp: t.u64(),
 };
 
+/**
+ * TradingSimulationState - Shared state for TradingAgents simulation
+ */
+const TradingSimulationState = {
+    id: t.string().primaryKey(),
+    lobby_id: t.string().index(),
+    ticker: t.string(),
+    status: t.string(),
+    latest_debate: t.string(),
+    updated_at: t.u64(),
+};
+
 const spacetimedb = schema({
     WorldEntity: table({ public: true }, WorldEntity),
     Lobby: table({ public: true }, Lobby),
@@ -174,9 +186,34 @@ const spacetimedb = schema({
     ChatMsg: table({ public: true }, ChatMsg),
     VoiceSignal: table({ public: true }, VoiceSignal),
     VoiceState: table({ public: true }, VoiceState),
+    TradingSimulationState: table({ public: true }, TradingSimulationState),
 });
 
 export default spacetimedb;
+
+export const update_trading_simulation = spacetimedb.reducer(
+    { lobby_id: t.string(), ticker: t.string(), status: t.string(), latest_debate: t.string() },
+    (ctx, data) => {
+        const id = `ts_${data.lobby_id}`;
+        const existing = ctx.db.TradingSimulationState.id.find(id);
+        if (existing) {
+            existing.ticker = data.ticker;
+            existing.status = data.status;
+            existing.latest_debate = data.latest_debate;
+            existing.updated_at = BigInt(Date.now());
+            ctx.db.TradingSimulationState.id.update(existing);
+        } else {
+            ctx.db.TradingSimulationState.insert({
+                id,
+                lobby_id: data.lobby_id,
+                ticker: data.ticker,
+                status: data.status,
+                latest_debate: data.latest_debate,
+                updated_at: BigInt(Date.now())
+            });
+        }
+    }
+);
 
 /**
  * Creates a new game lobby.

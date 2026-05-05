@@ -517,3 +517,33 @@ export function createSwapScaleTemplate(engine: any) {
     engine.addObject(root);
     return root;
 }
+
+export function createTradingAgentsTemplate(engine: any) {
+    console.log(`B3JS Engine: Generating Trading Agents Template...`);
+    
+    // Analyst
+    const analyst = engine.createNPC("Financial Analyst");
+    analyst.object.position.set(-2, 0, -3);
+    if (analyst.body) analyst.body.position.set(-2, 0, -3);
+    analyst.teamId = 1;
+    analyst.metadata.agentRole = "analyst";
+    analyst.object.lookAt(0, 0, 0);
+
+    // Researcher
+    const researcher = engine.createNPC("Market Researcher");
+    researcher.object.position.set(0, 0, -4);
+    if (researcher.body) researcher.body.position.set(0, 0, -4);
+    researcher.teamId = 1;
+    researcher.metadata.agentRole = "researcher";
+    researcher.object.lookAt(0, 0, 0);
+
+    // Portfolio Manager
+    const manager = engine.createNPC("Portfolio Manager");
+    manager.object.position.set(2, 0, -3);
+    if (manager.body) manager.body.position.set(2, 0, -3);
+    manager.teamId = 1;
+    manager.metadata.agentRole = "portfolio_manager";
+    manager.object.lookAt(0, 0, 0);
+
+    console.log(`B3JS Engine: Trading Agents Template Generated.`);
+}
