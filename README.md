@@ -26,7 +26,7 @@ From high-fidelity tactical simulations to decentralized virtual worlds, B3JS pr
 - **📏 Dynamic XR Scale System**: Advanced two-handed "grip-and-stretch" gestures for scaling both objects and the user (World Scale). Includes a **High-Precision Mode** (0.1x damping) and proportional locomotion scaling.
 - **🎙️ Proximity Voice & Secure Communications**: Integrated WebRTC spatial audio system using `THREE.PositionalAudio`. Includes multiple mic modes (Proximity, Broadcast, Zone, PTT) completely secured with AES-GCM encrypted WebRTC signaling via SpacetimeDB.
 - **🎙️ AI Voice & Spatial Intent**: Integrated NLP engine for processing deictic and spatial commands. Commands like "spawn this here" or "delete that" use real-time raycasting and spatial context to map intent to world actions.
-- **🤖 Trading Agents Framework**: Integrated LLM-driven financial simulation layer. Agents (Analyst, Researcher, Portfolio Manager) debate market data in real-time. Includes SpacetimeDB synchronization for multi-player simulation state and a live spatial visualization system.
+- **🤖 Trading Agents Framework**: Hardened LLM-driven financial simulation layer with real-time multi-agent debates, secure Web3 execution, and SpacetimeDB synchronization.
 - **🎨 Nodal Material Editor**: A visual-ready shader graph system for creating complex, dynamic materials and effects.
 
 - **🧩 Advanced Logic Bricks**: Professional-grade behavioral system (Sensors, Controllers, Actuators) with expanded support for Web3 wallets, Mining telemetry, and the new **Swap Scale** exchange system.
@@ -34,7 +34,8 @@ From high-fidelity tactical simulations to decentralized virtual worlds, B3JS pr
 - **🛠️ Professional Editor Tools**: 
     - **Modernized AssetBank**: Nodal-style accordion interface for high-density asset management and rapid search.
     - **XR Spatial Outliner**: Interactive 3D "Bolt Tablet" for in-scene management, projecting the hierarchical Outliner into 3D space.
-    - **🤖 Bolt Trading Tablet**: Specialized spatial prop for monitoring and managing live Trading Agent simulations directly in the 3D environment.
+    - **Trading Agents**: Immersive financial LLM framework with real-time agent debates and hardened Web3 execution.
+    - **Bolt Trading Tablet**: A 3D spatial UI for monitoring and authorizing AI-driven trades.
     - **⚡ Spatial Duplication**: Deep-cloning system for 3D assets and logic nodes, complemented by a floating XR toolbar for rapid manipulation.
 
     - **Undo/Redo** history and state restoration.
