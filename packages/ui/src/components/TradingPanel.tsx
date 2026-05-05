@@ -1,47 +1,63 @@
 import * as webjsx from 'webjsx';
 import { tradingClient, requestWalletTransaction } from '@b3js/engine';
 
-export function TradingPanel(props?: any) {
+let isAnalyzing = false;
+let lastDecision: string | null = null;
+let currentTicker = 'NVDA';
+let currentProvider = 'openai';
+let logEntries: { type: string, content: string, color: string }[] = [];
+let hasConnected = false;
+
+export function TradingPanel({ onRender }: any) {
     let tickerInput: HTMLInputElement;
     let apiKeyInput: HTMLInputElement;
     let providerSelect: HTMLSelectElement;
     let logContainer: HTMLDivElement;
 
-    // Local state for UI feedback
-    const [isAnalyzing, setIsAnalyzing] = webjsx.useState(false);
-    const [lastDecision, setLastDecision] = webjsx.useState<string | null>(null);
-
     // Connect automatically if not already connected
-    if (!tradingClient.active) {
+    if (!tradingClient.active && !hasConnected) {
         tradingClient.connect();
+        hasConnected = true;
     }
 
     const appendLog = (type: string, content: string, color: string = 'gray-400') => {
-        if (!logContainer) return;
-        const entry = document.createElement('div');
-        entry.className = 'text-sm mb-2 pb-2 border-b border-gray-700/50';
-        entry.innerHTML = `<span class="text-${color} font-bold">[${type}]</span> ${content}`;
-        logContainer.appendChild(entry);
-        logContainer.scrollTop = logContainer.scrollHeight;
+        logEntries.push({ type, content, color });
+        if (logContainer) {
+            const entry = document.createElement('div');
+            entry.className = 'text-sm mb-2 pb-2 border-b border-gray-700/50';
+            entry.innerHTML = `<span class="text-${color} font-bold">[${type}]</span> ${content}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
     };
 
-    // Listen to incoming messages
-    tradingClient.onMessage((msg) => {
-        if (!logContainer) return;
+    // Listen to incoming messages (Singleton listener)
+    if (hasConnected && tradingClient.active) {
+        // We assume tradingClient.onMessage replaces or handles multiple listeners correctly
+        // Or we should only register once. 
+        // For simplicity in this environment, we'll check a flag.
+    }
 
-        if (msg.type === 'status') {
-            appendLog('Status', msg.message, 'blue-400');
-        } else if (msg.type === 'decision') {
-            appendLog('Decision', msg.decision, 'green-400');
-            setLastDecision(msg.decision);
-            setIsAnalyzing(false);
-        } else if (msg.type === 'error') {
-            appendLog('Error', msg.message, 'red-400');
-            setIsAnalyzing(false);
-        } else if (msg.type === 'node_update') {
-            appendLog(msg.node, msg.content, 'yellow-400');
-        }
-    });
+    // Set up message handler if not already set
+    if (!(tradingClient as any)._hasUIListener) {
+        tradingClient.onMessage((msg) => {
+            if (msg.type === 'status') {
+                appendLog('Status', msg.message, 'blue-400');
+            } else if (msg.type === 'decision') {
+                appendLog('Decision', msg.decision, 'green-400');
+                lastDecision = msg.decision;
+                isAnalyzing = false;
+                if (onRender) onRender();
+            } else if (msg.type === 'error') {
+                appendLog('Error', msg.message, 'red-400');
+                isAnalyzing = false;
+                if (onRender) onRender();
+            } else if (msg.type === 'node_update') {
+                appendLog(msg.node, msg.content, 'yellow-400');
+            }
+        });
+        (tradingClient as any)._hasUIListener = true;
+    }
 
     const startAnalysis = () => {
         if (!tickerInput || !apiKeyInput || !providerSelect) return;
@@ -52,8 +68,10 @@ export function TradingPanel(props?: any) {
             return;
         }
 
-        setIsAnalyzing(true);
-        setLastDecision(null);
+        isAnalyzing = true;
+        lastDecision = null;
+        currentTicker = tickerInput.value;
+        currentProvider = providerSelect.value;
 
         const config = {
             llm_provider: providerSelect.value,
@@ -62,10 +80,11 @@ export function TradingPanel(props?: any) {
 
         appendLog('System', `Initiating Agent Deployment for ${tickerInput.value}...`, 'gray-300');
         tradingClient.startAnalysis(tickerInput.value, '2026-01-15', config);
+        if (onRender) onRender();
     };
 
     const executeTrade = async () => {
-        if (!lastDecision || !tickerInput) return;
+        if (!lastDecision) return;
 
         // Parse decision (simple heuristic)
         const action = lastDecision.toUpperCase().includes('BUY') ? 'BUY' : 
@@ -76,12 +95,12 @@ export function TradingPanel(props?: any) {
             return;
         }
 
-        appendLog('Web3', `Requesting Wallet Authorization for ${action} ${tickerInput.value}...`, 'purple-400');
+        appendLog('Web3', `Requesting Wallet Authorization for ${action} ${currentTicker}...`, 'purple-400');
 
         const success = await requestWalletTransaction({
-            ticker: tickerInput.value,
+            ticker: currentTicker,
             action: action as 'BUY' | 'SELL',
-            amount: 1.0, // Default for demo, should be configurable
+            amount: 1.0, 
             timestamp: Date.now()
         });
 
@@ -117,9 +136,10 @@ export function TradingPanel(props?: any) {
                     <input 
                         ref={(el: any) => { if(el) tickerInput = el; }} 
                         type="text" 
-                        value="NVDA"
+                        value={currentTicker}
                         disabled={isAnalyzing}
                         class="w-full bg-black/30 border border-gray-700 rounded px-2 py-1 text-sm focus:border-blue-500 focus:outline-none disabled:opacity-50"
+                        onInput={(e: any) => { currentTicker = e.target.value; }}
                     />
                 </div>
                 
@@ -128,7 +148,9 @@ export function TradingPanel(props?: any) {
                     <select 
                         ref={(el: any) => { if(el) providerSelect = el; }}
                         disabled={isAnalyzing}
+                        value={currentProvider}
                         class="w-full bg-black/30 border border-gray-700 rounded px-2 py-1 text-sm focus:border-blue-500 focus:outline-none disabled:opacity-50"
+                        onChange={(e: any) => { currentProvider = e.target.value; if(onRender) onRender(); }}
                     >
                         <option value="openai">OpenAI (GPT-5)</option>
                         <option value="google">Google (Gemini)</option>
@@ -176,7 +198,11 @@ export function TradingPanel(props?: any) {
                 ref={(el: any) => { if(el) logContainer = el; }}
                 class="flex-1 overflow-y-auto bg-black/50 border border-gray-800 rounded p-2 font-mono text-[11px] leading-relaxed"
             >
-                {/* Logs will stream here */}
+                {logEntries.map(log => (
+                    <div class="text-sm mb-2 pb-2 border-b border-gray-700/50">
+                        <span class={`text-${log.color} font-bold`}>[{log.type}]</span> {log.content}
+                    </div>
+                ))}
             </div>
         </div>
     );

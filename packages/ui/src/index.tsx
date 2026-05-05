@@ -1059,7 +1059,9 @@ export class B3Editor extends HTMLElement {
                         engine: this.engine,
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
-                    {this.activeBottomTab === 'trading' && (TradingPanel ? TradingPanel({}) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'trading' && (TradingPanel ? TradingPanel({ 
+                        onRender: () => this.render()
+                    }) : this.renderLazyPanel())}
 
 
                 </div>
