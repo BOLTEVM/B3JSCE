@@ -539,6 +539,28 @@ export const Properties = ({
                             </div>
                         </div>
                     )}
+
+                    {a.getTypeName() === 'HapticsActuator' && (
+                        <div style="margin-top: 8px; border-top: 1px solid #444; padding-top: 8px;">
+                            <div class="prop-row" style="border:none; padding: 2px 0;">
+                                <div class="prop-label" style="font-size: 8px; width: 60px;">Target Limb</div>
+                                <select value={a.targetLimb} onInput={(e: any) => { a.targetLimb = e.target.value; onRender(); }}>
+                                    <option value="Vest">Vest Body</option>
+                                    <option value="Head">Head Band</option>
+                                    <option value="HandL">Hand L</option>
+                                    <option value="HandR">Hand R</option>
+                                    <option value="ArmL">Arm L</option>
+                                    <option value="ArmR">Arm R</option>
+                                    <option value="FootL">Foot L</option>
+                                    <option value="FootR">Foot R</option>
+                                </select>
+                            </div>
+                            <div class="prop-row" style="border:none; padding: 2px 0;">
+                                <div class="prop-label" style="font-size: 8px; width: 60px;">Intensity</div>
+                                <input type="range" min="0" max="1" step="0.1" value={a.intensity.toString()} onInput={(e: any) => { a.intensity = parseFloat(e.target.value); onRender(); }} />
+                            </div>
+                        </div>
+                    )}
                 </div>
             ))}
 

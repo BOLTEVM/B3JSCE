@@ -8,21 +8,44 @@ import { B3Engine } from './index';
  */
 export class HapticsManager {
     private isConnected: boolean = false;
+    private isInitializing: boolean = false;
     private appId: string = 'com.b3js.engine';
     private apiKey: string = '';
     private devices: any[] = [];
+    private pollInterval: any = null;
+    private autoDetectInterval: any = null;
 
     constructor(private engine: B3Engine) {
         this.loadSettings();
         this.init();
         
-        // Poll for devices every 5 seconds if connected
-        setInterval(() => this.refreshDevices(), 5000);
+        // Start background auto-detection loop (reconnect watchdog)
+        this.autoDetectInterval = setInterval(() => {
+            if (!this.isConnected && !this.isInitializing) {
+                console.log('B3JS Haptics: Auto-scanning for local hardware...');
+                this.init();
+            }
+        }, 15000); // 15s check is enough for background
+    }
+
+    private startPolling() {
+        if (this.pollInterval) clearInterval(this.pollInterval);
+        this.pollInterval = setInterval(() => this.refreshDevices(), 5000);
     }
 
     private async refreshDevices() {
-        if (this.isConnected) {
-            this.devices = await this.getDevices();
+        if (!this.isConnected) return;
+
+        try {
+            const newDevices = await this.getDevices();
+            // Only update and log if devices changed to prevent noise
+            if (JSON.stringify(newDevices) !== JSON.stringify(this.devices)) {
+                this.devices = newDevices;
+                console.log(`B3JS Haptics: Device map updated. (${this.devices.length} active)`);
+            }
+        } catch (e) {
+            console.warn('B3JS Haptics: Polling failed, connection likely closed.');
+            this.isConnected = false;
         }
     }
 
@@ -45,16 +68,26 @@ export class HapticsManager {
     }
 
     private async init() {
+        if (this.isInitializing) return;
+        this.isInitializing = true;
+
         try {
+            console.log(`B3JS Haptics: Connecting to Player (App: ${this.appId})...`);
             await Tact.init({
                 appId: this.appId,
                 apiKey: this.apiKey
             });
             this.isConnected = true;
             console.log('B3JS Haptics: Initialized BHaptics connection.');
+            
+            // Immediate fetch after connection to avoid "Loading..." stall
+            await this.refreshDevices();
+            this.startPolling();
         } catch (e) {
             console.error('B3JS Haptics: Failed to initialize BHaptics.', e);
             this.isConnected = false;
+        } finally {
+            this.isInitializing = false;
         }
     }
 

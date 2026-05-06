@@ -63,6 +63,7 @@ export class B3Editor extends HTMLElement {
     private miningStats = { hashrate: '0 H/s', shares: '0', status: 'OFFLINE' };
     private gizmoMode: 'translate' | 'rotate' | 'scale' = 'translate';
     private isSettingsOpen: boolean = false;
+    private isHapticsOpen: boolean = false;
     private isProjectModalOpen: boolean = false;
     private isHelpOpen: boolean = false;
     private isAboutOpen: boolean = false;
@@ -682,9 +683,16 @@ export class B3Editor extends HTMLElement {
         if (tab === 'assetBank') this.loadLazyComponent('AssetBank', () => import('./components/AssetBank'));
         if (tab === 'zk') this.loadLazyComponent('ZKPanel', () => import('./components/ZKPanel'));
         if (tab === 'trading') this.loadLazyComponent('TradingPanel', () => import('./components/TradingPanel'));
+        if (tab === 'haptics') this.loadLazyComponent('HapticsPanel', () => import('./components/HapticsPanel'));
     }
 
     private setBottomTab(tab: typeof this.activeBottomTab) {
+        if (tab === 'haptics') {
+            this.isHapticsOpen = true;
+            this.loadBottomTab(tab);
+            this.render();
+            return;
+        }
         this.activeBottomTab = tab;
         this.loadBottomTab(tab);
         this.render();
@@ -1051,15 +1059,12 @@ export class B3Editor extends HTMLElement {
                         engine: this.engine,
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
-                    {this.activeBottomTab === 'haptics' && (HapticsPanel ? HapticsPanel({ 
+                    {this.activeBottomTab === 'trading' && (TradingPanel ? TradingPanel({ 
                         engine: this.engine,
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
                     {this.activeBottomTab === 'zk' && (ZKPanel ? ZKPanel({ 
                         engine: this.engine,
-                        onRender: () => this.render()
-                    }) : this.renderLazyPanel())}
-                    {this.activeBottomTab === 'trading' && (TradingPanel ? TradingPanel({ 
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
 
@@ -1108,6 +1113,13 @@ export class B3Editor extends HTMLElement {
                     onClose: () => { this.isSettingsOpen = false; this.render(); },
                     onRender: () => this.render(),
                     engine: this.engine
+                })}
+
+                {HapticsPanel && HapticsPanel({
+                    isOpen: this.isHapticsOpen,
+                    onClose: () => { this.isHapticsOpen = false; this.render(); },
+                    engine: this.engine,
+                    onRender: () => this.render()
                 })}
                 
                 {ProjectModal && ProjectModal({ 
