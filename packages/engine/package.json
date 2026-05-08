@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/three": "latest"
+    "@types/three": "latest",
+    "@types/web-bluetooth": "^0.0.21"
   }
 }

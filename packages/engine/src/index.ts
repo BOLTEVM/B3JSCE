@@ -74,19 +74,19 @@ import { HistoryManager, MoveObjectCommand, ScaleObjectCommand } from './core/hi
 import { registerShaderNodeType } from './core/registry';
 import { KeyboardSensor, CollisionSensor } from './logic/sensors';
 import { AndController, PythonController } from './logic/controllers';
-import { 
-    MotionActuator, 
-    MiningActuator, 
-    Web3ConnectActuator, 
-    InventoryActuator, 
+import {
+    MotionActuator,
+    MiningActuator,
+    Web3ConnectActuator,
+    InventoryActuator,
     SpawnActuator,
     HapticsActuator
 } from './logic/actuators';
-export { 
-    MotionActuator, 
-    MiningActuator, 
-    Web3ConnectActuator, 
-    InventoryActuator, 
+export {
+    MotionActuator,
+    MiningActuator,
+    Web3ConnectActuator,
+    InventoryActuator,
     SpawnActuator,
     HapticsActuator
 };
@@ -177,20 +177,20 @@ export class B3Engine {
     private _pathIdSeq: number = 0;
     navMeshId: string = 'main_nav';
     xrRig: THREE.Group = new THREE.Group();
-    
+
     // Multi-Scene State
     sceneRegistry: Map<string, any> = new Map();
     activeSceneName: string = "MainScene";
     private _prePlayState: string | null = null;
 
     // Governance & Permissions
-    isAdmin: boolean = true; 
+    isAdmin: boolean = true;
     allowPlayerVoiceAI: boolean = false;
 
     // Optimization State
     optimizationMode: 'auto' | 'manual' = 'auto';
     zoningRadius: number = 300;
-    
+
     private audioSubsetBuffer = new Float32Array(128);
     private loadingManager = new THREE.LoadingManager();
 
@@ -244,7 +244,7 @@ export class B3Engine {
         const tabletObj = new B3Object(gltf.scene);
         tabletObj.name = "Bolt Tablet (Outliner)";
         tabletObj.object.position.set(2, 1, 2);
-        
+
         // Find the screen mesh
         let screenMesh: THREE.Object3D | null = null;
         gltf.scene.traverse(node => {
@@ -257,7 +257,7 @@ export class B3Engine {
             container.style.height = '600px';
             container.style.background = '#111';
             container.style.overflow = 'hidden';
-            
+
             this.spatialUIRenderer(container);
 
             const cssObj = new CSS2DObject(container);
@@ -275,7 +275,7 @@ export class B3Engine {
         const tabletObj = new B3Object(gltf.scene);
         tabletObj.name = "Bolt Tablet (Trading Agents)";
         tabletObj.object.position.set(2, 1, 2);
-        
+
         // Find the screen mesh
         let screenMesh: THREE.Object3D | null = null;
         gltf.scene.traverse(node => {
@@ -288,7 +288,7 @@ export class B3Engine {
             container.style.height = '600px';
             container.style.background = '#1a1b1e';
             container.style.overflow = 'hidden';
-            
+
             this.spatialTradingRenderer(container);
 
             const cssObj = new CSS2DObject(container);
@@ -301,14 +301,14 @@ export class B3Engine {
     }
 
     duplicateObject(idOrObj: string | B3Object) {
-        const obj = typeof idOrObj === 'string' 
-            ? this.objects.find(o => o.id === idOrObj) 
+        const obj = typeof idOrObj === 'string'
+            ? this.objects.find(o => o.id === idOrObj)
             : idOrObj;
-            
+
         if (!obj) return null;
 
         const clone = obj.clone();
-        
+
         // Offset slightly so it's visible
         clone.object.position.add(new THREE.Vector3(1, 0, 1));
         if (clone.body) {
@@ -317,7 +317,7 @@ export class B3Engine {
 
         this.addObject(clone);
         this.selectObject(clone.id);
-        
+
         if (this.network && !clone.isRemote) {
             this.network.send('spawn', clone.toJSON());
         }
@@ -372,7 +372,7 @@ export class B3Engine {
         if (b3obj) {
             b3obj.object.position.copy(spawnPos);
             if (b3obj.body) b3obj.body.position.copy(spawnPos as any);
-            
+
             // Attach Inventory Metadata & Logic Hooks (Phase 2 Integration)
             if (entry.inventory) {
                 b3obj.metadata = {
@@ -384,27 +384,27 @@ export class B3Engine {
                 const col = new CollisionSensor();
                 const act = new InventoryActuator(entry.inventory.category || 'Material', entry.inventory.quantity || 1);
                 const ctrl = new AndController();
-                
+
                 // Set IDs and wiring
                 col.id = `auto_col_${b3obj.id}`;
                 act.id = `auto_act_${b3obj.id}`;
                 ctrl.id = `auto_ctrl_${b3obj.id}`;
-                
+
                 ctrl.sensors.push(col);
                 ctrl.actuators.push(act);
-                
+
                 b3obj.addSensor(col);
                 b3obj.addActuator(act);
                 b3obj.addController(ctrl);
-                
+
                 console.log(`B3Engine: Attached auto-pickup logic to ${entry.name}`);
             }
-            
+
             // If not added by factory, add now
             if (!this.objects.includes(b3obj)) {
                 this.addObject(b3obj);
             }
-            
+
             this.selectObject(b3obj.id);
             console.log(`B3Engine: Spawned ${entry.name} from bank.`);
         }
@@ -420,13 +420,13 @@ export class B3Engine {
             console.log(`B3Engine: Fetching custom asset bank from ${url}`);
             const response = await fetch(url);
             const assets: AssetEntry[] = await response.json();
-            
+
             assets.forEach(entry => {
                 if (!ASSET_BANK.find(a => a.id === entry.id)) {
                     ASSET_BANK.push(entry);
                 }
             });
-            
+
             console.log(`B3Engine: Successfully loaded ${assets.length} custom assets.`);
         } catch (e) {
             console.error("B3Engine: Failed to load custom asset bank", e);
@@ -452,11 +452,11 @@ export class B3Engine {
         for (const verb of spawnVerbs) {
             if (text.includes(verb)) {
                 const query = text.replace(verb, '').trim();
-                const matchedAsset = ASSET_BANK.find(a => 
-                    query.includes(a.name.toLowerCase()) || 
+                const matchedAsset = ASSET_BANK.find(a =>
+                    query.includes(a.name.toLowerCase()) ||
                     a.voiceKeywords.some(kw => query.includes(kw))
                 );
-                
+
                 if (matchedAsset) {
                     let spawnPos = null;
                     if (text.includes('here') && context.position) {
@@ -492,8 +492,8 @@ export class B3Engine {
         // 3. Give Intent (To Inventory)
         if (text.includes('give me') || text.includes('grant')) {
             const query = text.replace('give me', '').replace('grant', '').trim();
-            const matchedAsset = ASSET_BANK.find(a => 
-                query.includes(a.name.toLowerCase()) || 
+            const matchedAsset = ASSET_BANK.find(a =>
+                query.includes(a.name.toLowerCase()) ||
                 a.voiceKeywords.some(kw => query.includes(kw))
             );
             if (matchedAsset) {
@@ -541,11 +541,11 @@ export class B3Engine {
         // Find the player actor (assuming first actor for now)
         const player = this.objects.find(o => o.isActor);
         if (player && player.inventory) {
-            const item = { 
-                ...entry.inventory, 
-                name: entry.name, 
+            const item = {
+                ...entry.inventory,
+                name: entry.name,
                 modelUrl: entry.url,
-                quantity: entry.inventory.quantity || 1 
+                quantity: entry.inventory.quantity || 1
             };
             player.inventory.addItem(item as any);
             return `Granted ${entry.name} to your inventory.`;
@@ -569,7 +569,7 @@ export class B3Engine {
 
         player.inventory.removeItem(item.id!);
         await this.spawnAsset(assetId, player.object.position.clone().add(new THREE.Vector3(0, 0, 1)));
-        
+
         return `Dropped ${item.name} at your feet.`;
     }
 
@@ -666,7 +666,7 @@ export class B3Engine {
                     this.selectedObject.body.velocity.set(0, 0, 0);
                     this.selectedObject.body.angularVelocity.set(0, 0, 0);
                 }
-                
+
                 if (this.gizmo.getMode() === 'scale') {
                     (this.selectedObject as any)._physicsDirty = true;
                 }
@@ -687,7 +687,7 @@ export class B3Engine {
                     const endPos = this.selectedObject.object.position.clone();
                     const endRot = this.selectedObject.object.quaternion.clone();
                     const endScale = this.selectedObject.object.scale.clone();
-                    
+
                     if (!startPos.equals(endPos) || !startRot.equals(endRot)) {
                         this.history.execute(new MoveObjectCommand(
                             this.selectedObject,
@@ -730,14 +730,14 @@ export class B3Engine {
             // Prevent keybinds if user is typing in an input field
             if (this.isTextEntryEvent(e)) return;
 
-            switch(e.code) {
+            switch (e.code) {
                 case 'KeyG': this.setGizmoMode('translate'); break;
                 case 'KeyR': this.setGizmoMode('rotate'); break;
                 case 'KeyS': this.setGizmoMode('scale'); break;
                 case 'KeyF': if (this.selectedObject) this.focusObject(this.selectedObject); break;
-                case 'KeyX': 
-                case 'Delete': 
-                    if (this.selectedObject) this.removeObject(this.selectedObject.id); 
+                case 'KeyX':
+                case 'Delete':
+                    if (this.selectedObject) this.removeObject(this.selectedObject.id);
                     break;
                 case 'KeyD':
                     if (e.shiftKey && this.selectedObject) {
@@ -759,7 +759,7 @@ export class B3Engine {
 
         container.addEventListener('mousedown', (e) => {
             const isShift = this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight');
-            
+
             // If Shift is held, prioritize cinematic camera rotation over gizmo/selection
             if (isShift && e.button === 0) {
                 this.renderer.domElement.requestPointerLock();
@@ -777,7 +777,7 @@ export class B3Engine {
             this.mouse.y = -((e.clientY - rect.top) / this.container.clientHeight) * 2 + 1;
             this.raycaster.setFromCamera(this.mouse, this.camera);
             const gizmoIntersects = this.raycaster.intersectObjects(this.gizmo.getHelper().children, true);
-            
+
             if (gizmoIntersects.length > 0) {
                 isDraggingCam = false;
                 return;
@@ -797,7 +797,7 @@ export class B3Engine {
         window.addEventListener('mouseup', (e) => {
             const diffX = Math.abs(e.clientX - startX);
             const diffY = Math.abs(e.clientY - startY);
-            
+
             if (isDraggingCam && diffX < dragThreshold && diffY < dragThreshold) {
                 // If it was a static click (not a drag), handle object selection
                 this.handleClick(e);
@@ -815,15 +815,15 @@ export class B3Engine {
             if (document.pointerLockElement || isDraggingCam) {
                 // If Shift is down, rotate. If not, only rotate if we were dragging (legacy behavior)
                 const isShift = this.keysDown.has('ShiftLeft') || this.keysDown.has('ShiftRight');
-                
+
                 if (isShift || isDraggingCam) {
                     this.camera.rotation.order = 'YXZ';
                     this.camera.rotation.y -= deltaX * sensitivity;
                     this.camera.rotation.x -= deltaY * sensitivity;
-                    
+
                     // Clamp vertical rotation to avoid flipping (approx 85 degrees)
                     this.camera.rotation.x = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, this.camera.rotation.x));
-                    
+
                     // Force zero roll to prevent diagonal tilting
                     this.camera.rotation.z = 0;
                 }
@@ -978,7 +978,7 @@ self.onmessage = function(e) {
 
     spawnActor(actorType: string, teamId: number = 0) {
         const spawnPoints = this.objects.filter(o => o.type === 'SpawnPoint' && (o.metadata.teamId === teamId || o.metadata.teamId === 0));
-        
+
         let spawnPos = new THREE.Vector3(0, 5, 0);
         if (spawnPoints.length > 0) {
             const sp = spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
@@ -1042,7 +1042,7 @@ self.onmessage = function(e) {
     loadFromLocalStorage() {
         const offlineCache = localStorage.getItem('B3JS_OFFLINE_CACHE');
         const raw = offlineCache || localStorage.getItem('B3JS_PROJECT_DATA');
-        
+
         if (!raw) {
             this.createBoltevmTemplate().then(() => {
                 this.sceneRegistry.set("MainScene", JSON.parse(this.serialize()));
@@ -1089,7 +1089,7 @@ self.onmessage = function(e) {
     async requestPath(start: THREE.Vector3, target: THREE.Vector3): Promise<THREE.Vector3[] | null> {
         this.initializePathfinderWorker();
         if (!this.pathfinderWorker) return null;
-        
+
         return new Promise((resolve) => {
             const id = this._pathIdSeq++;
             this._pathCallbacks.set(id, (path) => resolve(path));
@@ -1123,7 +1123,7 @@ self.onmessage = function(e) {
                 c.guiMetadata = { x: 300, y: 50 + i * 120 };
                 const a = new MotionActuator(obj.object, dirs[i]);
                 a.guiMetadata = { x: 550, y: 50 + i * 120 };
-                
+
                 c.addSensor(s);
                 c.addActuator(a);
                 obj.addSensor(s);
@@ -1226,7 +1226,7 @@ self.onmessage = function(e) {
 
     private handleDoubleClick(e: MouseEvent) {
         // Force selection of the object even if the gizmo is in the way
-        this.handleClick(e, true); 
+        this.handleClick(e, true);
         if (this.selectedObject) {
             this.focusObject(this.selectedObject);
         }
@@ -1236,16 +1236,16 @@ self.onmessage = function(e) {
         const box = new THREE.Box3().setFromObject(obj.object);
         const center = new THREE.Vector3();
         box.getCenter(center);
-        
+
         const sphere = new THREE.Sphere();
         box.getBoundingSphere(sphere);
-        
+
         const dist = sphere.radius / Math.tan((Math.PI * this.camera.fov) / 360);
-        
+
         // Offset camera slightly to avoid being exactly inside or too far
         const direction = new THREE.Vector3().subVectors(this.camera.position, center).normalize();
         const targetPos = center.clone().add(direction.multiplyScalar(dist * 2));
-        
+
         // Smoothly move camera (immediate for now, can be tweened later if desired)
         this.camera.position.copy(targetPos);
         this.camera.lookAt(center);
@@ -1359,7 +1359,7 @@ self.onmessage = function(e) {
             if (this.keysDown.has('KeyS')) dir.z += 1;
             if (this.keysDown.has('KeyA')) dir.x -= 1;
             if (this.keysDown.has('KeyD')) dir.x += 1;
-            
+
             if (dir.lengthSq() > 0) {
                 dir.normalize();
                 dir.applyQuaternion(this.camera.quaternion);
@@ -1395,7 +1395,7 @@ self.onmessage = function(e) {
                         const dx = camPos.x - zone.center.x;
                         const dy = camPos.y - zone.center.y;
                         const dz = camPos.z - zone.center.z;
-                        if (Math.sqrt(dx*dx + dy*dy + dz*dz) <= zone.radius) {
+                        if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= zone.radius) {
                             localZoneId = zone.id;
                             break;
                         }
@@ -1406,7 +1406,7 @@ self.onmessage = function(e) {
                             const dx = rp.position.x - zone.center.x;
                             const dy = rp.position.y - zone.center.y;
                             const dz = rp.position.z - zone.center.z;
-                            if (Math.sqrt(dx*dx + dy*dy + dz*dz) <= zone.radius) {
+                            if (Math.sqrt(dx * dx + dy * dy + dz * dz) <= zone.radius) {
                                 rp.zoneId = zone.id;
                                 break;
                             }
@@ -1497,7 +1497,7 @@ self.onmessage = function(e) {
                     restored.body = new CANNON.Body({ mass: objData.physics.mass });
                     restored.body.type = objData.physics.type;
                     restored.recalculatePhysicsBody();
-                    
+
                     if (restored.body && objData.transform) {
                         restored.body.position.set(objData.transform.position[0], objData.transform.position[1], objData.transform.position[2]);
                         restored.body.quaternion.set(objData.transform.rotation[0], objData.transform.rotation[1], objData.transform.rotation[2], objData.transform.rotation[3]);
@@ -1561,9 +1561,9 @@ self.onmessage = function(e) {
             return url;
         });
 
-        const entries = Array.from(files).filter(f => 
-            f.name.toLowerCase().endsWith('.glb') || 
-            f.name.toLowerCase().endsWith('.gltf') || 
+        const entries = Array.from(files).filter(f =>
+            f.name.toLowerCase().endsWith('.glb') ||
+            f.name.toLowerCase().endsWith('.gltf') ||
             f.name.toLowerCase().endsWith('.obj')
         );
 
@@ -1572,7 +1572,7 @@ self.onmessage = function(e) {
             if (file.name.toLowerCase().endsWith('.obj')) {
                 const mtlName = file.name.toLowerCase().replace('.obj', '.mtl');
                 const mtlFile = Array.from(files).find(f => f.name.toLowerCase() === mtlName);
-                
+
                 const loadObj = (materials?: any) => {
                     const loader = new OBJLoader(manager);
                     if (materials) {
@@ -1645,7 +1645,7 @@ self.onmessage = function(e) {
             const item = obj.inventory.items.find(i => i.id === this.itemId);
             if (item) obj.equipItem(item);
         }
-        update() {}
+        update() { }
     };
 }
 

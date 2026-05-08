@@ -333,3 +333,37 @@ export class HapticsActuator extends Actuator {
 
 }
 
+/**
+ * ProTubeActuator: Triggers ForceTube recoil/haptics.
+ */
+export class ProTubeActuator extends Actuator {
+    constructor(
+        public intensity: number = 1.0
+    ) {
+        super();
+    }
+
+    getTypeName() { return 'ProTubeActuator'; }
+
+    execute(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) {
+        if (!engine.proTube) return;
+        engine.proTube.triggerKick(this.intensity);
+    }
+
+    update(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) {}
+
+    toJSON() {
+        return {
+            ...super.toJSON(),
+            type: 'ProTubeActuator',
+            intensity: this.intensity
+        };
+    }
+
+    static fromJSON(data: any): ProTubeActuator {
+        const n = new ProTubeActuator(data.intensity);
+        n.id = data.id; n.guiMetadata = data.guiMetadata; n.enabled = data.enabled;
+        return n;
+    }
+}
+
