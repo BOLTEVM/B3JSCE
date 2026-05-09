@@ -243,16 +243,63 @@ export const HapticsPanel = ({ engine, onRender, isOpen, onClose }: any) => {
                                     </div>
                                 </div>
                                 <div style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center;">
-                                    {/* SVG Lines */}
+                                    {/* SVG Lines for Body Map */}
                                     <svg style="position: absolute; width: 100%; height: 100%; pointer-events: none;">
-                                        <line x1="50%" y1="35%" x2="50%" y2="50%" stroke="#1e293b" stroke-width="2" />
-                                        <line x1="50%" y1="50%" x2="35%" y2="65%" stroke="#1e293b" stroke-width="2" />
-                                        <line x1="50%" y1="50%" x2="65%" y2="65%" stroke="#1e293b" stroke-width="2" />
+                                        {/* Torso connections */}
+                                        <line x1="50%" y1="20%" x2="50%" y2="40%" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="4" />
+                                        
+                                        {/* Arms/Hands connections */}
+                                        <line x1="38%" y1="45%" x2="25%" y2="55%" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="4" />
+                                        <line x1="62%" y1="45%" x2="75%" y2="55%" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="4" />
+                                        <line x1="25%" y1="55%" x2="15%" y2="65%" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="4" />
+                                        <line x1="75%" y1="55%" x2="85%" y2="65%" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="4" />
+                                        
+                                        {/* Feet connections */}
+                                        <line x1="45%" y1="70%" x2="40%" y2="85%" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="4" />
+                                        <line x1="55%" y1="70%" x2="60%" y2="85%" stroke="#1e293b" stroke-width="1.5" stroke-dasharray="4" />
                                     </svg>
-                                    <div onClick={() => engine?.haptics?.triggerDots('Head', Array(20).fill(100))} style={`position: absolute; top: 20%; width: 60px; height: 60px; border-radius: 50%; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'Head'))}`}>HEAD</div>
-                                    <div onClick={() => engine?.haptics?.triggerDots('Vest', Array(20).fill(100))} style={`position: absolute; top: 40%; width: 90px; height: 130px; border-radius: 20px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'Vest'))}`}>VEST</div>
-                                    <div onClick={() => engine?.haptics?.triggerDots('HandL', Array(20).fill(100))} style={`position: absolute; left: 20%; top: 55%; width: 50px; height: 50px; border-radius: 8px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'HandL'))}`}>L-ARM</div>
-                                    <div onClick={() => engine?.haptics?.triggerDots('HandR', Array(20).fill(100))} style={`position: absolute; right: 20%; top: 55%; width: 50px; height: 50px; border-radius: 8px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'HandR'))}`}>R-ARM</div>
+
+                                    {/* Head */}
+                                    <div onClick={() => engine?.haptics?.triggerDots('Head', Array(20).fill(100))} 
+                                         style={`position: absolute; top: 12%; width: 54px; height: 54px; border-radius: 50%; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'Head'))}`}>
+                                         HEAD
+                                    </div>
+
+                                    {/* Torso/Vest */}
+                                    <div onClick={() => engine?.haptics?.triggerDots('Vest', Array(20).fill(100))} 
+                                         style={`position: absolute; top: 38%; width: 90px; height: 120px; border-radius: 16px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'Vest'))}`}>
+                                         VEST
+                                    </div>
+
+                                    {/* Arms (Sleeves/Hands) */}
+                                    <div onClick={() => engine?.haptics?.triggerDots('HandL', Array(20).fill(100))} 
+                                         style={`position: absolute; left: 20%; top: 52%; width: 44px; height: 44px; border-radius: 8px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'HandL'))}`}>
+                                         L-ARM
+                                    </div>
+                                    <div onClick={() => engine?.haptics?.triggerDots('HandR', Array(20).fill(100))} 
+                                         style={`position: absolute; right: 20%; top: 52%; width: 44px; height: 44px; border-radius: 8px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'HandR'))}`}>
+                                         R-ARM
+                                    </div>
+
+                                    {/* Gloves */}
+                                    <div onClick={() => engine?.haptics?.triggerDots('GloveL', Array(20).fill(100))} 
+                                         style={`position: absolute; left: 8%; top: 62%; width: 40px; height: 40px; border-radius: 6px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'GloveL'))}`}>
+                                         L-HAND
+                                    </div>
+                                    <div onClick={() => engine?.haptics?.triggerDots('GloveR', Array(20).fill(100))} 
+                                         style={`position: absolute; right: 8%; top: 62%; width: 40px; height: 40px; border-radius: 6px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'GloveR'))}`}>
+                                         R-HAND
+                                    </div>
+
+                                    {/* Feet */}
+                                    <div onClick={() => engine?.haptics?.triggerDots('FootL', Array(20).fill(100))} 
+                                         style={`position: absolute; left: 35%; bottom: 10%; width: 44px; height: 44px; border-radius: 8px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'FootL'))}`}>
+                                         L-FOOT
+                                    </div>
+                                    <div onClick={() => engine?.haptics?.triggerDots('FootR', Array(20).fill(100))} 
+                                         style={`position: absolute; right: 35%; bottom: 10%; width: 44px; height: 44px; border-radius: 8px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'FootR'))}`}>
+                                         R-FOOT
+                                    </div>
                                 </div>
                             </div>
                         )}
