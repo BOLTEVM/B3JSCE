@@ -29,6 +29,8 @@ import { HapticsManager } from './haptics';
 import { ZKManager, CommitmentStore, ZKSocialManager } from '@b3js/zk';
 import { FogOverlay } from './rendering/FogOverlay';
 import { ProximityManager } from './proximity';
+import { LovenseManager } from './lovense';
+import { LovenseActuator } from './logic/lovenseActuator';
 
 // ─── Core Module Re-exports ────────────────────────────────────
 
@@ -163,6 +165,7 @@ export class B3Engine {
     public web3: typeof B3Web3 = B3Web3;
     public voiceManager: VoiceManager = new VoiceManager(this);
     public haptics: HapticsManager;
+    public lovense: LovenseManager;
     public zk: ZKManager = new ZKManager();
     public fogOverlay!: FogOverlay;
     public social: ZKSocialManager;
@@ -628,6 +631,7 @@ export class B3Engine {
         this.xrRig.add(this.camera);
         this.xr = new XRManager(this);
         this.haptics = new HapticsManager(this);
+        this.lovense = new LovenseManager(this);
         this.optimizer = new Optimizer(this);
 
         this.vehicles = new VehicleManager(this);
@@ -950,6 +954,12 @@ self.onmessage = function(e) {
                 this._prePlayState = null;
             }
         }
+        
+        // Lovense Game Mode Sync
+        if (this.lovense) {
+            this.lovense.setMode(this.isPaused ? 'Paused' : 'Active');
+        }
+        
         console.log(`B3JS Engine: Simulation ${this.isPaused ? 'PAUSED' : 'RESUMED'}`);
     }
 
@@ -1054,7 +1064,7 @@ self.onmessage = function(e) {
         try {
             const data = JSON.parse(raw);
             this.sceneRegistry = new Map(Object.entries(data.registry));
-            this.switchScene(data.active);
+            if (data.active) this.switchScene(data.active);
             console.log("B3JS Engine: Project Restored from LocalStorage");
         } catch (e) {
             console.error("B3JS Engine: Failed to restore project", e);
@@ -1621,6 +1631,7 @@ self.onmessage = function(e) {
     static BoneLookAtActuator = BoneLookAtActuator;
     static BoneTransformActuator = BoneTransformActuator;
     static HapticsActuator = HapticsActuator;
+    static LovenseActuator = LovenseActuator;
 
 
     static ColorNode = ColorNode;

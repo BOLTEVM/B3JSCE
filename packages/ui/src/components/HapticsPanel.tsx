@@ -3,21 +3,31 @@ import * as webjsx from 'webjsx';
 export const HapticsPanel = ({ engine, onRender, isOpen, onClose }: any) => {
     if (!isOpen) return <div />;
 
-    const isConnected = engine?.haptics?.getStatus();
-    const devices = engine?.haptics?.getConnectedDevicesList() || [];
-    
-    const getAppId = () => (document.getElementById('bhaptics-appid') as HTMLInputElement)?.value || localStorage.getItem('B3JS_BHAPTICS_APP_ID') || 'com.b3js.engine';
-    const getApiKey = () => (document.getElementById('bhaptics-apikey') as HTMLInputElement)?.value || localStorage.getItem('B3JS_BHAPTICS_API_KEY') || '';
+    // Use a simple local state for tabs, persistent during open session
+    if (!(window as any)._hapticsTab) (window as any)._hapticsTab = 'bhaptics';
+    const activeTab = (window as any)._hapticsTab;
+    const setTab = (tab: string) => { (window as any)._hapticsTab = tab; onRender(); };
 
-    const handleUpdate = () => {
-        const appId = getAppId();
-        const apiKey = getApiKey();
+    const bhapticsConnected = engine?.haptics?.getStatus();
+    const bhapticsDevices = engine?.haptics?.getConnectedDevicesList() || [];
+    
+    const lovenseConnected = engine?.lovense?.getStatus();
+    const lovenseToys = engine?.lovense?.getToys() || [];
+
+    const protubeStatus = engine?.proTube?.getStatus() || { connected: false, device: 'None' };
+
+    const handleBhapticsUpdate = () => {
+        const appId = (document.getElementById('bhaptics-appid') as HTMLInputElement)?.value;
+        const apiKey = (document.getElementById('bhaptics-apikey') as HTMLInputElement)?.value;
         engine?.haptics?.updateSettings(appId, apiKey);
         setTimeout(onRender, 500); 
     };
 
-    const testHaptic = (pos: string) => {
-        engine?.haptics?.triggerDots(pos, Array(20).fill(100), 200);
+    const handleLovenseUpdate = () => {
+        const token = (document.getElementById('lovense-token') as HTMLInputElement)?.value;
+        engine?.lovense?.updateSettings(token);
+        engine?.lovense?.refreshToys();
+        setTimeout(onRender, 500);
     };
 
     const limbStyle = (active: boolean) => `
@@ -34,13 +44,24 @@ export const HapticsPanel = ({ engine, onRender, isOpen, onClose }: any) => {
         text-transform: uppercase;
     `;
 
+    const tabStyle = (id: string) => `
+        padding: 8px 16px;
+        font-size: 11px;
+        font-weight: 800;
+        text-transform: uppercase;
+        cursor: pointer;
+        border-bottom: 2px solid ${activeTab === id ? '#6366f1' : 'transparent'};
+        color: ${activeTab === id ? '#fff' : '#475569'};
+        transition: all 0.2s;
+    `;
+
     return (
         <div class="modal-overlay" onClick={onClose} style="z-index: 1000;">
             <style>{`
                 .haptics-modal {
                     width: 900px;
                     max-width: 95vw;
-                    height: 600px;
+                    height: 640px;
                     background: #0b0e14;
                     border: 1px solid #1e293b;
                     border-radius: 16px;
@@ -51,11 +72,15 @@ export const HapticsPanel = ({ engine, onRender, isOpen, onClose }: any) => {
                     font-family: 'Inter', sans-serif;
                 }
                 .haptics-header {
-                    padding: 24px 32px;
+                    padding: 24px 32px 12px 32px;
                     border-bottom: 1px solid #1e293b;
+                }
+                .haptics-tabs {
                     display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
+                    gap: 12px;
+                    padding: 0 32px;
+                    background: #0b0e14;
+                    border-bottom: 1px solid #1e293b;
                 }
                 .haptics-body {
                     flex: 1;
@@ -87,13 +112,7 @@ export const HapticsPanel = ({ engine, onRender, isOpen, onClose }: any) => {
                     position: relative;
                     display: flex;
                     flex-direction: column;
-                }
-                .hud-diagram {
-                    flex: 1;
-                    position: relative;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
+                    overflow: hidden;
                 }
                 .input-group label {
                     display: block;
@@ -113,10 +132,6 @@ export const HapticsPanel = ({ engine, onRender, isOpen, onClose }: any) => {
                     color: #fff;
                     font-size: 13px;
                     outline: none;
-                    transition: border-color 0.2s;
-                }
-                .input-group input:focus {
-                    border-color: #6366f1;
                 }
                 .init-btn {
                     width: 100%;
@@ -126,156 +141,193 @@ export const HapticsPanel = ({ engine, onRender, isOpen, onClose }: any) => {
                     border: none;
                     border-radius: 8px;
                     font-weight: 800;
-                    font-size: 13px;
-                    text-transform: uppercase;
-                    cursor: pointer;
-                    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
-                    transition: transform 0.1s;
-                }
-                .init-btn:active { transform: scale(0.98); }
-                .emergency-btn {
-                    margin-top: auto;
-                    padding: 14px;
-                    background: rgba(239, 68, 68, 0.05);
-                    border: 1px solid #ef4444;
-                    color: #ef4444;
-                    border-radius: 8px;
-                    font-weight: 800;
                     font-size: 11px;
                     text-transform: uppercase;
                     cursor: pointer;
-                    transition: all 0.2s;
                 }
-                .emergency-btn:hover { background: rgba(239, 68, 68, 0.15); }
+                .toy-card {
+                    background: rgba(15, 23, 42, 0.4);
+                    border: 1px solid #1e293b;
+                    border-radius: 10px;
+                    padding: 16px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 12px;
+                }
             `}</style>
 
             <div class="haptics-modal" onClick={(e: any) => e.stopPropagation()}>
                 <div class="haptics-header">
-                    <div>
-                        <div style="font-size: 22px; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 12px;">
-                            <div style="width: 14px; height: 24px; background: #6366f1; border-radius: 3px;"></div>
-                            BHAPTICS HARDWARE ORCHESTRATOR
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <div style="font-size: 20px; font-weight: 900; color: #fff; display: flex; align-items: center; gap: 12px;">
+                                <div style="width: 12px; height: 22px; background: #6366f1; border-radius: 3px;"></div>
+                                HAPTIC STACK ORCHESTRATOR
+                            </div>
+                            <div style="font-size: 10px; color: #64748b; font-weight: 700; margin-top: 4px; letter-spacing: 2px;">MULTI-PROTOCOL HARDWARE INTERFACE</div>
                         </div>
-                        <div style="font-size: 10px; color: #64748b; font-weight: 700; margin-top: 6px; letter-spacing: 2px;">SPATIAL FEEDBACK CONTROLLER V1.2.4</div>
+                        <div onClick={onClose} style="width: 28px; height: 28px; border-radius: 50%; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; font-size: 16px;">✕</div>
                     </div>
-                    <div onClick={onClose} style="width: 32px; height: 32px; border-radius: 50%; background: rgba(255,255,255,0.05); display: flex; align-items: center; justify-content: center; cursor: pointer; color: #64748b; font-size: 18px;">✕</div>
+                </div>
+
+                <div class="haptics-tabs">
+                    <div style={tabStyle('bhaptics')} onClick={() => setTab('bhaptics')}>bHaptics</div>
+                    <div style={tabStyle('lovense')} onClick={() => setTab('lovense')}>Lovense</div>
+                    <div style={tabStyle('protube')} onClick={() => setTab('protube')}>ProTube VR</div>
                 </div>
 
                 <div class="haptics-body">
+                    {/* Sidebar Configuration */}
                     <div class="config-section">
-                        <div style="padding: 24px; border: 1px solid #1e293b; border-radius: 12px; background: rgba(15, 23, 42, 0.4);">
-                            <div class="input-group" style="margin-bottom: 20px;">
-                                <label>APPLICATION ID</label>
-                                <input id="bhaptics-appid" type="text" value={localStorage.getItem('B3JS_BHAPTICS_APP_ID') || 'com.b3js.engine'} />
+                        {activeTab === 'bhaptics' && (
+                            <div style="padding: 24px; border: 1px solid #1e293b; border-radius: 12px; background: rgba(15, 23, 42, 0.4);">
+                                <div class="input-group" style="margin-bottom: 20px;">
+                                    <label>APPLICATION ID</label>
+                                    <input id="bhaptics-appid" type="text" value={localStorage.getItem('B3JS_BHAPTICS_APP_ID') || 'com.b3js.engine'} />
+                                </div>
+                                <div class="input-group" style="margin-bottom: 24px;">
+                                    <label>SECURE ACCESS KEY</label>
+                                    <input id="bhaptics-apikey" type="password" value={localStorage.getItem('B3JS_BHAPTICS_API_KEY') || ''} placeholder="••••••••••••" />
+                                </div>
+                                <button class="init-btn" onClick={handleBhapticsUpdate}>
+                                    {bhapticsConnected ? 'RE-SYNC HARDWARE' : 'FORCE RE-SCAN'}
+                                </button>
                             </div>
-                            <div class="input-group" style="margin-bottom: 24px;">
-                                <label>SECURE ACCESS KEY</label>
-                                <input id="bhaptics-apikey" type="password" value={localStorage.getItem('B3JS_BHAPTICS_API_KEY') || ''} placeholder="••••••••••••" />
-                            </div>
-                            <button class="init-btn" onClick={handleUpdate}>
-                                {isConnected ? 'RE-SYNC HARDWARE' : 'FORCE RE-SCAN HARDWARE'}
-                            </button>
-                        </div>
+                        )}
 
-                        <div style="padding: 20px; border: 1px solid #1e293b; border-radius: 12px;">
-                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                                <span style="font-size: 10px; font-weight: 700; color: #64748b; letter-spacing: 1px;">ACTIVE STACK</span>
-                                <span style={`font-size: 10px; font-weight: 800; color: ${isConnected ? '#10b981' : '#facc15'}; text-transform: uppercase;`}>
-                                    {isConnected ? 'CONNECTED' : 'AUTO-SCANNING'}
-                                </span>
-                            </div>
-                            <div style="height: 60px; border: 1px dashed #1e293b; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
-                                <div style="font-size: 10px; color: #334155; font-style: italic;">
-                                    {isConnected ? `${devices.length} Devices in active routing table` : 'Searching for local BHaptics Player...'}
+                        {activeTab === 'lovense' && (
+                            <div style="padding: 24px; border: 1px solid #1e293b; border-radius: 12px; background: rgba(15, 23, 42, 0.4);">
+                                <div class="input-group" style="margin-bottom: 24px;">
+                                    <label>DEVELOPER TOKEN</label>
+                                    <input id="lovense-token" type="password" value={localStorage.getItem('B3JS_LOVENSE_DEV_TOKEN') || ''} placeholder="Your Lovense Dev Token" />
+                                </div>
+                                <button class="init-btn" onClick={handleLovenseUpdate} style="background: linear-gradient(135deg, #ec4899, #db2777);">
+                                    {lovenseConnected ? 'REFRESH TOYS' : 'INIT LOCAL LINK'}
+                                </button>
+                                <div style="margin-top: 20px; font-size: 10px; color: #64748b; line-height: 1.5;">
+                                    Requires <b>Lovense Connect</b> app running on PC/Mac or Mobile. Local control uses loopback domain 127-0-0-1.lovense.club.
                                 </div>
                             </div>
-                        </div>
+                        )}
 
-                        <button class="emergency-btn" onClick={() => engine?.haptics?.stopAll()}>
+                        {activeTab === 'protube' && (
+                            <div style="padding: 24px; border: 1px solid #1e293b; border-radius: 12px; background: rgba(15, 23, 42, 0.4);">
+                                <div style="font-size: 12px; color: #fff; font-weight: 700; margin-bottom: 12px;">WEBBluetooth Interface</div>
+                                <button class="init-btn" onClick={() => engine?.proTube?.connect()} style="background: linear-gradient(135deg, #3b82f6, #2563eb);">
+                                    {protubeStatus.connected ? 'DISCONNECT' : 'SCAN FOR DEVICES'}
+                                </button>
+                                <div style="margin-top: 16px; font-size: 10px; color: #64748b;">
+                                    Device: <span style="color: #94a3b8;">{protubeStatus.device}</span>
+                                </div>
+                            </div>
+                        )}
+
+                        <button style="margin-top: auto; padding: 14px; background: rgba(239, 68, 68, 0.05); border: 1px solid #ef4444; color: #ef4444; border-radius: 8px; font-weight: 800; font-size: 11px; text-transform: uppercase; cursor: pointer;"
+                                onClick={() => { engine?.haptics?.stopAll(); engine?.lovense?.stopAll(); }}>
                             EMERGENCY SHUTDOWN
                         </button>
                     </div>
 
+                    {/* Main Content Area */}
                     <div class="hud-container">
-                        <div style="padding: 24px 32px; display: flex; justify-content: space-between; align-items: flex-start;">
-                            <div>
-                                <div style="font-size: 16px; font-weight: 800; color: #fff; letter-spacing: 1px;">SPATIAL DISTRIBUTION HUD</div>
-                                <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Real-time node status & haptic routing</div>
-                            </div>
-                            <div style="display: flex; gap: 24px;">
-                                <div>
-                                    <div style="font-size: 9px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">LATENCY</div>
-                                    <div style="font-size: 16px; font-weight: 800; color: #1e293b; text-align: right;">-- ms</div>
+                        {activeTab === 'bhaptics' && (
+                            <div style="flex: 1; display: flex; flex-direction: column;">
+                                <div style="padding: 24px; display: flex; justify-content: space-between;">
+                                    <div>
+                                        <div style="font-size: 16px; font-weight: 800; color: #fff;">BHAPTICS SPATIAL HUD</div>
+                                        <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Real-time node status & haptic routing</div>
+                                    </div>
+                                    <div style={`font-size: 12px; font-weight: 800; color: ${bhapticsConnected ? '#10b981' : '#facc15'};`}>
+                                        {bhapticsConnected ? 'LINK ACTIVE' : 'SEARCHING...'}
+                                    </div>
                                 </div>
-                                <div>
-                                    <div style="font-size: 9px; font-weight: 700; color: #475569; text-transform: uppercase; text-align: right;">X-LINK</div>
-                                    <div style={`font-size: 16px; font-weight: 800; color: ${isConnected ? '#00ff88' : '#ef4444'}; text-align: right;`}>{isConnected ? 'ACTIVE' : 'IDLE'}</div>
+                                <div style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center;">
+                                    {/* SVG Lines */}
+                                    <svg style="position: absolute; width: 100%; height: 100%; pointer-events: none;">
+                                        <line x1="50%" y1="35%" x2="50%" y2="50%" stroke="#1e293b" stroke-width="2" />
+                                        <line x1="50%" y1="50%" x2="35%" y2="65%" stroke="#1e293b" stroke-width="2" />
+                                        <line x1="50%" y1="50%" x2="65%" y2="65%" stroke="#1e293b" stroke-width="2" />
+                                    </svg>
+                                    <div onClick={() => engine?.haptics?.triggerDots('Head', Array(20).fill(100))} style={`position: absolute; top: 20%; width: 60px; height: 60px; border-radius: 50%; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'Head'))}`}>HEAD</div>
+                                    <div onClick={() => engine?.haptics?.triggerDots('Vest', Array(20).fill(100))} style={`position: absolute; top: 40%; width: 90px; height: 130px; border-radius: 20px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'Vest'))}`}>VEST</div>
+                                    <div onClick={() => engine?.haptics?.triggerDots('HandL', Array(20).fill(100))} style={`position: absolute; left: 20%; top: 55%; width: 50px; height: 50px; border-radius: 8px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'HandL'))}`}>L-ARM</div>
+                                    <div onClick={() => engine?.haptics?.triggerDots('HandR', Array(20).fill(100))} style={`position: absolute; right: 20%; top: 55%; width: 50px; height: 50px; border-radius: 8px; ${limbStyle(bhapticsDevices.some((d: any) => d.position === 'HandR'))}`}>R-ARM</div>
                                 </div>
                             </div>
-                        </div>
+                        )}
 
-                        <div class="hud-diagram">
-                            {/* SVG Lines */}
-                            <svg style="position: absolute; width: 100%; height: 100%; pointer-events: none;">
-                                <line x1="50%" y1="35%" x2="50%" y2="50%" stroke="#1e293b" stroke-width="2" />
-                                <line x1="50%" y1="50%" x2="35%" y2="65%" stroke="#1e293b" stroke-width="2" />
-                                <line x1="50%" y1="50%" x2="65%" y2="65%" stroke="#1e293b" stroke-width="2" />
-                                <line x1="35%" y1="65%" x2="35%" y2="75%" stroke="#1e293b" stroke-width="2" />
-                                <line x1="65%" y1="65%" x2="65%" y2="75%" stroke="#1e293b" stroke-width="2" />
-                            </svg>
-
-                            {/* Head */}
-                            <div onClick={() => testHaptic('Head')} 
-                                 style={`position: absolute; top: 20%; width: 60px; height: 60px; border-radius: 50%; ${limbStyle(devices.some((d: any) => d.position === 'Head'))}`}>
-                                HEAD
-                            </div>
-
-                            {/* Vest */}
-                            <div onClick={() => testHaptic('Vest')} 
-                                 style={`position: absolute; top: 40%; width: 100px; height: 140px; border-radius: 20px; ${limbStyle(devices.some((d: any) => d.position === 'Vest'))}`}>
-                                VEST
-                            </div>
-
-                            {/* Arms/Hands */}
-                            <div onClick={() => testHaptic('HandL')} 
-                                 style={`position: absolute; left: 25%; top: 60%; width: 60px; height: 60px; border-radius: 8px; ${limbStyle(devices.some((d: any) => d.position === 'HandL'))}`}>
-                                L-GLOVE
-                            </div>
-                            <div onClick={() => testHaptic('HandR')} 
-                                 style={`position: absolute; right: 25%; top: 60%; width: 60px; height: 60px; border-radius: 8px; ${limbStyle(devices.some((d: any) => d.position === 'HandR'))}`}>
-                                R-GLOVE
-                            </div>
-
-                            {/* Feet */}
-                            <div onClick={() => testHaptic('FootL')} 
-                                 style={`position: absolute; left: 35%; bottom: 10%; width: 50px; height: 40px; border-radius: 6px; ${limbStyle(devices.some((d: any) => d.position === 'FootL'))}`}>
-                                L-FOOT
-                            </div>
-                            <div onClick={() => testHaptic('FootR')} 
-                                 style={`position: absolute; right: 35%; bottom: 10%; width: 50px; height: 40px; border-radius: 6px; ${limbStyle(devices.some((d: any) => d.position === 'FootR'))}`}>
-                                R-FOOT
-                            </div>
-                        </div>
-
-                        <div style="padding: 20px 32px; border-top: 1px solid #1e293b; display: flex; gap: 12px; overflow-x: auto;">
-                            {devices.map((d: any) => (
-                                <div style="flex-shrink: 0; padding: 6px 12px; background: rgba(0,0,0,0.3); border: 1px solid #1e293b; border-radius: 4px; font-size: 9px; color: #475569; display: flex; align-items: center; gap: 6px;">
-                                    <div style="width: 4px; height: 4px; border-radius: 50%; background: #10b981;"></div>
-                                    {d.deviceName || d.position}
+                        {activeTab === 'lovense' && (
+                            <div style="flex: 1; padding: 32px; overflow-y: auto;">
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                                    <div>
+                                        <div style="font-size: 16px; font-weight: 800; color: #fff;">LOVENSE DEVICE POOL</div>
+                                        <div style="font-size: 10px; color: #64748b; margin-top: 4px;">Discovered toys via local Connect bridge</div>
+                                    </div>
+                                    <div style={`padding: 4px 10px; border-radius: 4px; font-size: 9px; font-weight: 800; background: ${lovenseConnected ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'}; color: ${lovenseConnected ? '#10b981' : '#ef4444'};`}>
+                                        {lovenseConnected ? 'LOCAL SERVER ONLINE' : 'SERVER OFFLINE'}
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
+
+                                {lovenseToys.length === 0 ? (
+                                    <div style="height: 200px; border: 1px dashed #1e293b; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; color: #334155;">
+                                        <div style="font-size: 24px;">📡</div>
+                                        <div style="font-size: 11px; font-weight: 600;">No toys found. Ensure Lovense Connect is open.</div>
+                                    </div>
+                                ) : (
+                                    lovenseToys.map((toy: any) => (
+                                        <div class="toy-card">
+                                            <div>
+                                                <div style="font-size: 13px; font-weight: 700; color: #fff;">{toy.name}</div>
+                                                <div style="font-size: 10px; color: #64748b; margin-top: 2px;">{toy.type} — ID: {toy.id.substring(0, 8)}</div>
+                                            </div>
+                                            <div style="display: flex; align-items: center; gap: 16px;">
+                                                <div style="text-align: right;">
+                                                    <div style="font-size: 10px; font-weight: 800; color: #10b981;">{toy.battery}%</div>
+                                                    <div style="font-size: 8px; color: #475569; text-transform: uppercase;">Battery</div>
+                                                </div>
+                                                <button onClick={() => engine.lovense.sendCommand('vibrate', 10, toy.id)} 
+                                                        style="padding: 8px 12px; background: rgba(255,255,255,0.05); border: 1px solid #1e293b; color: #fff; border-radius: 6px; font-size: 10px; cursor: pointer;">
+                                                    TEST
+                                                </button>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+
+                                <div style="margin-top: 32px; padding: 20px; background: rgba(0,0,0,0.2); border-radius: 12px; border: 1px solid #1e293b;">
+                                    <div style="font-size: 11px; font-weight: 700; color: #fff; margin-bottom: 12px;">QUICK GLOBAL COMMANDS</div>
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                        <button onClick={() => engine.lovense.sendCommand('vibrate', 10)} style="padding: 10px; background: #1e293b; border: none; border-radius: 6px; color: #fff; font-size: 10px; cursor: pointer;">VIBRATE ALL</button>
+                                        <button onClick={() => engine.lovense.playPattern('50;100;50;100')} style="padding: 10px; background: #1e293b; border: none; border-radius: 6px; color: #fff; font-size: 10px; cursor: pointer;">PULSE ALL</button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'protube' && (
+                            <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #334155;">
+                                <div style="font-size: 48px; margin-bottom: 20px;">🔫</div>
+                                <div style="font-size: 14px; font-weight: 700; color: #fff;">ProTubeVR ForceTube Interface</div>
+                                <div style="font-size: 11px; margin-top: 8px;">Direct WebBluetooth recoil & haptic feedback</div>
+                                <button onClick={() => engine.proTube?.triggerKick(1.0)} 
+                                        disabled={!protubeStatus.connected}
+                                        style={`margin-top: 24px; padding: 12px 24px; background: ${protubeStatus.connected ? '#6366f1' : '#1e293b'}; border: none; border-radius: 8px; color: #fff; font-weight: 800; cursor: pointer;`}>
+                                    TEST RECOIL KICK
+                                </button>
+                            </div>
+                        )}
                     </div>
                 </div>
 
                 <div class="haptics-footer">
-                    <div>B3JS HAPTICS CORE V1.2.4-STABLE</div>
+                    <div>B3JS HAPTICS CORE V2.0.0-PRO</div>
                     <div style="display: flex; gap: 24px;">
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <div style={`width: 6px; height: 6px; border-radius: 50%; background: ${isConnected ? '#10b981' : '#475569'};`}></div>
-                            WS LINK ACTIVE
+                            <div style={`width: 6px; height: 6px; border-radius: 50%; background: ${bhapticsConnected || lovenseConnected ? '#10b981' : '#475569'};`}></div>
+                            ACTIVE LINK
                         </div>
-                        <div>STACK: {devices.length}</div>
+                        <div>DEVICES: {bhapticsDevices.length + lovenseToys.length}</div>
                     </div>
                 </div>
             </div>
