@@ -11,6 +11,7 @@ export { AndController, PythonController } from './controllers';
 export { MotionActuator, MiningActuator, Web3ConnectActuator, InventoryActuator } from './actuators';
 export { AudioReactiveActuator, SpinnerActuator, VideoPlayerActuator } from './bolt_nodes';
 export { SwapSensor, SwapController, SwapActuator } from './swap_nodes';
+export { RacingWheelActuator } from './racing_wheel_actuator';
 
 // ZK Privacy Nodes
 export { ZKZoneSensor, ZKProximitySensor, ZKRevealSensor, ZKCommitActuator, ZKRevealActuator, ZKProveActuator, ZKZoneActuator } from './zk_nodes';
@@ -56,6 +57,7 @@ import { AudioReactiveActuator, SpinnerActuator, VideoPlayerActuator } from './b
 import { SwapSensor, SwapController, SwapActuator } from './swap_nodes';
 import { CSharpController } from './csharp';
 import { ZKZoneSensor, ZKProximitySensor, ZKRevealSensor, ZKCommitActuator, ZKRevealActuator, ZKProveActuator, ZKZoneActuator } from './zk_nodes';
+import { RacingWheelActuator } from './racing_wheel_actuator';
 
 // V1 Sensors
 registerSensorType('KeyboardSensor', (d) => KeyboardSensor.fromJSON(d));
@@ -78,6 +80,7 @@ registerActuatorType('AudioReactiveActuator', (d) => AudioReactiveActuator.fromJ
 registerActuatorType('SpinnerActuator', (d) => SpinnerActuator.fromJSON(d));
 registerActuatorType('VideoPlayerActuator', (d) => VideoPlayerActuator.fromJSON(d));
 registerActuatorType('SwapActuator', (d) => SwapActuator.fromJSON(d));
+registerActuatorType('RacingWheelActuator', (d) => RacingWheelActuator.fromJSON(d));
 
 // ZK Privacy Nodes
 registerSensorType('ZKZoneSensor', (d) => ZKZoneSensor.fromJSON(d));

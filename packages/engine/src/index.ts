@@ -31,6 +31,7 @@ import { FogOverlay } from './rendering/FogOverlay';
 import { ProximityManager } from './proximity';
 import { LovenseManager } from './lovense';
 import { LovenseActuator } from './logic/lovenseActuator';
+import { HardwareBridge } from './hardware_bridge';
 
 // ─── Core Module Re-exports ────────────────────────────────────
 
@@ -170,6 +171,7 @@ export class B3Engine {
     public fogOverlay!: FogOverlay;
     public social: ZKSocialManager;
     public proximity: ProximityManager;
+    public bridge: HardwareBridge;
     projects: ProjectManager = new ProjectManager();
 
     activeProjectId: string | null = null;
@@ -652,6 +654,8 @@ export class B3Engine {
 
         // Proximity Voice & Text Manager
         this.proximity = new ProximityManager(this);
+
+        this.bridge = new HardwareBridge(this);
 
         this.world = new CANNON.World();
         this.world.gravity.set(0, -9.82, 0);
