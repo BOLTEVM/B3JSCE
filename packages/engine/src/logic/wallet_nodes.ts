@@ -49,10 +49,32 @@ export class WalletActuator extends Actuator {
                 this.trigger('OnFailure', ctx);
                 return;
             }
-            // Implementation of signing and sending would go here
-            console.log(`[WALLET] Sending ${this.getInput('Value')} to ${this.getInput('To')}...`);
-            this.setOutput('TxHash', '0x' + Math.random().toString(16).substring(2, 66));
-            this.trigger('OnSuccess', ctx);
+            
+            try {
+                const to = this.getInput('To');
+                const value = this.getInput('Value');
+                console.log(`[WALLET] Sending ${value} to ${to}...`);
+                
+                const wallets = await vault.listWallets();
+                if (wallets.length === 0) throw new Error("No wallets available in vault.");
+                const walletId = wallets[0].id;
+                
+                const txParams = {
+                    to,
+                    value,
+                    data: '0x',
+                    gasLimit: 21000n // Basic send
+                };
+                
+                const signedTx = await vault.signTransaction(walletId, txParams);
+                const txHash = await vault.broadcastTransaction(signedTx);
+                
+                this.setOutput('TxHash', txHash);
+                this.trigger('OnSuccess', ctx);
+            } catch (error: any) {
+                console.error("[WALLET] Send transaction failed:", error);
+                this.trigger('OnFailure', ctx);
+            }
         }
     }
 

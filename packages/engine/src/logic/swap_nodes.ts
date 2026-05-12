@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { Sensor, Controller, Actuator, B3ObjectRef, B3EngineRef } from './base';
 import { CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
+import { requestWalletTransaction } from '../wallet/integration';
 
 /**
  * SwapSensor: Detects if a Token B3Object is placed on a specific pan.
@@ -181,9 +182,37 @@ export class SwapController extends Controller {
                 const btn = document.createElement('button');
                 btn.style.cssText = 'width: 100%; background: #6366f1; color: white; border: none; padding: 10px; border-radius: 6px; font-weight: bold; cursor: pointer;';
                 btn.textContent = 'EXECUTE SWAP';
-                btn.onclick = () => {
+                btn.onclick = async () => {
                     btn.textContent = 'SWAPPING...';
                     btn.disabled = true;
+                    
+                    let action: 'BUY' | 'SELL' = 'BUY';
+                    let ticker = this.targetToken.symbol;
+                    
+                    if (this.targetToken.symbol === 'ETH' || this.targetToken.symbol === 'native') {
+                         action = 'SELL';
+                         ticker = this.inputToken.symbol;
+                    } else {
+                         action = 'BUY';
+                         ticker = this.targetToken.symbol;
+                    }
+                    
+                    const intent = {
+                        ticker: ticker,
+                        action: action,
+                        amount: 1,
+                        timestamp: Date.now()
+                    };
+                    
+                    const success = await requestWalletTransaction(intent);
+                    if (success) {
+                        btn.style.background = '#10b981';
+                        btn.textContent = 'SUCCESS';
+                    } else {
+                        btn.style.background = '#ef4444';
+                        btn.textContent = 'FAILED';
+                    }
+
                     setTimeout(() => {
                         this.swapState = 'IDLE';
                         this.updateUI(b3obj, engine);

@@ -1,6 +1,7 @@
 import { ethers, wordlists } from 'ethers';
 import { LangEn } from 'ethers/wordlists';
 import { CHAINS, ChainConfig } from './chains';
+import type { SwapQuote } from './SwapProvider';
 
 // BOLT-09: Robust wordlist resolution to prevent "FAILED" errors in minified builds
 if (typeof window !== 'undefined') {
@@ -206,6 +207,27 @@ export class VaultManager {
 
         this.logEvent('rpc', `Transaction broadcast: ${txResponse.hash}`, 'success');
         return txResponse.hash;
+    }
+
+    public async executeSwap(walletId: string, quote: SwapQuote): Promise<string> {
+        if (!quote.transactionRequest?.to || !quote.transactionRequest?.data) {
+            throw new Error('Invalid swap quote: missing transaction request data.');
+        }
+        
+        const txParams = {
+            to: quote.transactionRequest.to,
+            value: quote.transactionRequest.value || '0',
+            data: quote.transactionRequest.data,
+            gasLimit: quote.transactionRequest.gasLimit,
+            gasPrice: quote.transactionRequest.gasPrice
+        };
+        
+        const signedTx = await this.signTransaction(walletId, txParams);
+        return await this.broadcastTransaction(signedTx);
+    }
+
+    public async executeBridge(walletId: string, quote: SwapQuote): Promise<string> {
+        return this.executeSwap(walletId, quote);
     }
 
     // ─── Utility & Log System ─────────────────────────────────────

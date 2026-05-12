@@ -1,8 +1,10 @@
 import { ContractRegistry } from './ContractRegistry';
 import { AssetRegistry } from './AssetRegistry';
 import { VaultManager } from './VaultManager';
+import { SwapProvider, SwapQuote, SwapQuoteParams, BridgeQuoteParams } from './SwapProvider';
 
-export { ContractRegistry, AssetRegistry, VaultManager };
+export { ContractRegistry, AssetRegistry, VaultManager, SwapProvider };
+export type { SwapQuote, SwapQuoteParams, BridgeQuoteParams };
 
 /**
  * B3JS Web3 Core
@@ -11,6 +13,7 @@ export class B3Web3 {
     public static contracts = new ContractRegistry();
     public static assets = new AssetRegistry();
     public static vault = new VaultManager();
+    public static swapProvider = new SwapProvider();
 
     static async connect() {
         console.log("B3JS: Connecting to Web3...");
@@ -75,11 +78,10 @@ export class MinerClient {
             try {
                 const res = await fetch(url);
                 const data = await res.json();
-                // Simulating Quai hashrate/shares since the middleware provided was hardware-only
                 this.stats = {
-                    hashrate: 450.5, // Mock hashrate for demonstration
-                    shares: 12,
-                    status: 'ONLINE',
+                    hashrate: data.hashrate || 0,
+                    shares: data.shares || 0,
+                    status: data.running ? 'ONLINE' : 'OFFLINE',
                     miner: 'QUAI'
                 };
                 this.notify();

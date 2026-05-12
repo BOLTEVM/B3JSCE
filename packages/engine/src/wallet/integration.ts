@@ -1,4 +1,4 @@
-import { B3Web3 } from '@b3js/web3';
+import { B3Web3, SwapQuoteParams } from '@b3js/web3';
 
 export interface TradeIntent {
     ticker: string;
@@ -7,12 +7,13 @@ export interface TradeIntent {
     price?: number;
     timestamp: number;
     chainId?: string;
+    targetToken?: string;
 }
 
 /**
  * Wallet Integration
  * Connects the engine's economic intents to the user's detected browser wallet 
- * or the hardened BoltOS internal vault.
+ * or the hardened BoltOS internal vault via LI.FI aggregator.
  */
 export async function requestWalletTransaction(intent: TradeIntent): Promise<boolean> {
     // 1. Validation
@@ -23,77 +24,127 @@ export async function requestWalletTransaction(intent: TradeIntent): Promise<boo
 
     const activeChainId = intent.chainId || 'ethereum';
     
-    // 2. Resolve Contract Address
-    const ROUTER_ADDRESS = (window as any).B3_ROUTER_ADDRESS || '0x74726164696e6720726f757465722062336a73'; 
-
-    // 3. Construct Transaction Data (Hardened Tag Format)
-    const actionTag = intent.action === 'BUY' ? '01' : '02';
-    const tickerHex = Buffer.from(intent.ticker.padEnd(8, ' ')).toString('hex');
-    const amountHex = intent.amount.toString(16).padStart(16, '0');
-    const data = `0xb3ee${actionTag}${tickerHex}${amountHex}`;
-
-    // ─── Provider Branching ───────────────────────────────────────
-
-    // Option A: Internal Vault (BoltOS Hardened Core)
+    // 2. Determine Tokens based on Action
+    // BUY: Swap native for ticker
+    // SELL: Swap ticker for native
+    const fromToken = intent.action === 'BUY' ? 'native' : intent.ticker;
+    const toToken = intent.action === 'BUY' ? intent.ticker : 'native';
+    
+    // 3. Fetch Quote from Aggregator
+    console.log(`[WalletIntegration] Fetching quote for ${intent.action} ${intent.amount} ${intent.ticker}...`);
+    
+    // In a real scenario, the fromAddress needs to be the wallet's address.
+    // For now, we will attempt to get it from the Vault or MetaMask.
+    let fromAddress = '';
+    let useVault = false;
+    let walletId = '';
+    
     if (!B3Web3.vault.isLocked()) {
-        console.log("[WalletIntegration] Using Internal Hardened Vault...");
-        try {
-            B3Web3.vault.setActiveChain(activeChainId);
-            const wallets = await B3Web3.vault.listWallets();
-            if (wallets.length === 0) throw new Error("No wallets in vault");
-            
-            const walletId = wallets[0].id; // Default to first wallet for demo
-            
-            const txParams = {
-                to: ROUTER_ADDRESS,
-                value: '0',
-                data: data,
-                gasLimit: 100000n, // Reasonable default for contract call
-                nonce: 0 // In real use, fetch this from provider
-            };
-
-            const signedTx = await B3Web3.vault.signTransaction(walletId, txParams);
-            const txHash = await B3Web3.vault.broadcastTransaction(signedTx);
-            
-            console.log(`[WalletIntegration] Vault Transaction successful: ${txHash}`);
-            return true;
-        } catch (e: any) {
-            console.error("[WalletIntegration] Internal Vault Error:", e);
-            B3Web3.vault.logEvent('security', `Transaction failed: ${e.message}`, 'error');
-            // Fallback to MetaMask if vault fails
+        const wallets = await B3Web3.vault.listWallets();
+        if (wallets.length > 0) {
+            fromAddress = wallets[0].address;
+            walletId = wallets[0].id;
+            useVault = true;
+        }
+    } else if (typeof (window as any).ethereum !== 'undefined') {
+        const accounts = await (window as any).ethereum.request({ method: 'eth_requestAccounts' });
+        if (accounts && accounts.length > 0) {
+            fromAddress = accounts[0];
         }
     }
 
-    // Option B: External Browser Wallet (MetaMask)
-    if (typeof (window as any).ethereum !== 'undefined') {
-        const ethereum = (window as any).ethereum;
-        try {
-            const accounts = await ethereum.request({ method: 'eth_requestAccounts' });
-            const account = accounts[0];
+    if (!fromAddress) {
+        console.error("[WalletIntegration] No wallet provider available (Vault locked & No MetaMask).");
+        return false;
+    }
 
+    try {
+        const quoteParams: SwapQuoteParams = {
+            fromChainKey: activeChainId,
+            toChainKey: activeChainId,
+            fromToken,
+            toToken,
+            fromAmount: intent.amount.toString(),
+            fromAddress,
+            slippage: 0.005
+        };
+
+        const quote = await B3Web3.swapProvider.getQuote(quoteParams);
+        
+        // Handle Approval
+        if (quote.approvalRequired && quote.approvalAddress) {
+            console.log(`[WalletIntegration] Approval required for ${quote.approvalAddress}`);
+            const approvalReq = await B3Web3.swapProvider.checkApproval(
+                quote.fromToken.address,
+                fromAddress,
+                quote.approvalAddress,
+                quote.fromAmount,
+                activeChainId
+            );
+            
+            if (approvalReq) {
+                if (useVault) {
+                    const signedApproval = await B3Web3.vault.signTransaction(walletId, {
+                        to: approvalReq.to,
+                        data: approvalReq.data,
+                        value: approvalReq.value,
+                        gasLimit: approvalReq.gasLimit,
+                        chainId: approvalReq.chainId
+                    });
+                    await B3Web3.vault.broadcastTransaction(signedApproval);
+                } else {
+                    await (window as any).ethereum.request({
+                        method: 'eth_sendTransaction',
+                        params: [{
+                            to: approvalReq.to,
+                            from: fromAddress,
+                            data: approvalReq.data,
+                        }],
+                    });
+                }
+                console.log(`[WalletIntegration] Approval transaction sent.`);
+            }
+        }
+
+        // ─── Provider Branching ───────────────────────────────────────
+
+        // Option A: Internal Vault (BoltOS Hardened Core)
+        if (useVault) {
+            console.log("[WalletIntegration] Using Internal Hardened Vault...");
+            B3Web3.vault.setActiveChain(activeChainId);
+            const txHash = await B3Web3.vault.executeSwap(walletId, quote);
+            console.log(`[WalletIntegration] Vault Swap successful: ${txHash}`);
+            return true;
+        }
+
+        // Option B: External Browser Wallet (MetaMask)
+        if (typeof (window as any).ethereum !== 'undefined') {
             console.log(`[WalletIntegration] Preparing ${intent.action} order for ${intent.ticker} via MetaMask...`);
 
             const txParams = {
-                to: ROUTER_ADDRESS,
-                from: account,
-                value: '0x00', 
-                data: data,
-                gas: '0x186A0' // 100,000 gas
+                to: quote.transactionRequest.to,
+                from: fromAddress,
+                value: "0x" + BigInt(quote.transactionRequest.value || "0").toString(16), 
+                data: quote.transactionRequest.data,
+                gas: "0x" + BigInt(quote.transactionRequest.gasLimit || "100000").toString(16)
             };
 
-            const txHash = await ethereum.request({
+            const txHash = await (window as any).ethereum.request({
                 method: 'eth_sendTransaction',
                 params: [txParams],
             });
 
-            console.log(`[WalletIntegration] MetaMask Transaction submitted: ${txHash}`);
+            console.log(`[WalletIntegration] MetaMask Swap submitted: ${txHash}`);
             return true;
-        } catch (error) {
-            console.error("[WalletIntegration] MetaMask Transaction failed or rejected", error);
-            return false;
         }
-    } else {
-        console.error("[WalletIntegration] No wallet provider available (Vault locked & No MetaMask).");
+        
+    } catch (error: any) {
+        console.error("[WalletIntegration] Transaction failed or rejected:", error);
+        if (useVault) {
+             B3Web3.vault.logEvent('security', `Transaction failed: ${error.message}`, 'error');
+        }
         return false;
     }
+    
+    return false;
 }
