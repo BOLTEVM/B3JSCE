@@ -4,6 +4,7 @@ import { ASSET_BANK } from './assets';
 import { XRRadialMenu, XRGizmo, XRInspectorCard, XRAiHUD, XRContextMenu } from './xr_ui';
 
 export type LocomotionMode = 'Teleport' | 'Fly' | 'Designer' | 'Teleoperation';
+export type XRHandedness = 'left' | 'right';
 
 
 /**
@@ -48,8 +49,10 @@ export class XRManager {
     private _flyDir = new THREE.Vector3();
     private primaryControllerIndex: number = 0;
     private contextBtnPressed: boolean = false;
+    private settingsMenuHand: XRHandedness = 'left';
     
     constructor(private engine: B3Engine) {
+        this.settingsMenuHand = this.loadSettingsMenuHand();
 
         this.menu = new XRRadialMenu(this.engine);
         this.gizmo = new XRGizmo();
@@ -106,6 +109,25 @@ export class XRManager {
     public setNoClip(enabled: boolean) {
         this.noclip = enabled;
         console.log(`B3JS XR: No-Clip -> ${enabled}`);
+    }
+
+    public setSettingsMenuHand(hand: XRHandedness) {
+        this.settingsMenuHand = hand;
+        if (typeof localStorage !== 'undefined') {
+            localStorage.setItem('B3JS_XR_SETTINGS_HAND', hand);
+            localStorage.setItem('B3JS_XR_DOMINANT_HAND', hand);
+        }
+        console.log(`B3JS XR: Settings Menu Hand -> ${hand}`);
+    }
+
+    public getSettingsMenuHand(): XRHandedness {
+        return this.settingsMenuHand;
+    }
+
+    private loadSettingsMenuHand(): XRHandedness {
+        if (typeof localStorage === 'undefined') return 'left';
+        const saved = localStorage.getItem('B3JS_XR_SETTINGS_HAND') || localStorage.getItem('B3JS_XR_DOMINANT_HAND');
+        return saved === 'right' ? 'right' : 'left';
     }
 
     private onSelectEnd(index: number) {
@@ -256,17 +278,17 @@ export class XRManager {
                     this.triggerVoiceAI(ctrl);
                 }
 
-                if (contextBtn.pressed && source.handedness === 'left') {
+                if (contextBtn.pressed && source.handedness === this.settingsMenuHand) {
                     if (!this.contextBtnPressed) {
                         this.contextBtnPressed = true;
                         if (this.contextMenu.isVisible()) {
                             this.contextMenu.hide();
                         } else {
-                            this.contextMenu.show(this.controllers[0]);
+                            this.contextMenu.show(this.controllers[this.settingsMenuHand === 'left' ? 0 : 1]);
                             this.menu.hide(); // Don't show both
                         }
                     }
-                } else if (!contextBtn.pressed && source.handedness === 'left') {
+                } else if (!contextBtn.pressed && source.handedness === this.settingsMenuHand) {
                     this.contextBtnPressed = false;
                 }
             }

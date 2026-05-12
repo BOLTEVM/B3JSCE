@@ -13,6 +13,7 @@ import { LogicEditor } from './components/LogicEditor';
 import { MiningPanel } from './components/MiningPanel';
 import { SettingsModal } from './components/SettingsModal';
 import { XRToolbar } from './components/XRToolbar';
+import { XRUXOverlay } from './components/XRUXOverlay';
 import { HapticsPanel } from './components/HapticsPanel';
 
 
@@ -955,6 +956,46 @@ export class B3Editor extends HTMLElement {
                     .setting-title { font-weight: bold; margin-bottom: 8px; font-size: 13px; color: #fff; }
                     .close-btn { cursor: pointer; opacity: 0.5; font-size: 20px; }
                     .close-btn:hover { opacity: 1; color: #ff3366; }
+
+                    /* XR Glass Command Overlay */
+                    .xrux-layer { grid-area: viewport; position: relative; pointer-events: none; z-index: 20; display: flex; align-items: flex-start; justify-content: flex-end; padding: 14px; box-sizing: border-box; min-height: 0; }
+                    .xrux-launcher, .xrux-panel { pointer-events: auto; }
+                    .xrux-layer.left-hand { justify-content: flex-start; }
+                    .xrux-launcher { width: 44px; height: 44px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(14,20,28,0.74); color: #e8fbff; font-size: 12px; font-weight: 800; cursor: pointer; backdrop-filter: blur(18px); box-shadow: 0 16px 42px rgba(0,0,0,0.36); }
+                    .xrux-panel { width: min(420px, calc(100vw - 390px)); max-width: 420px; max-height: calc(100% - 28px); display: flex; flex-direction: column; overflow: hidden; border-radius: 8px; border: 1px solid rgba(190,230,255,0.22); background: rgba(12,18,26,var(--xrux-opacity)); color: #e9f6ff; backdrop-filter: blur(22px) saturate(1.25); box-shadow: 0 20px 60px rgba(0,0,0,0.44); }
+                    .xrux-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px; border-bottom: 1px solid rgba(255,255,255,0.09); }
+                    .xrux-title { font-size: 14px; font-weight: 800; color: #ffffff; }
+                    .xrux-subtitle { margin-top: 2px; font-size: 10px; color: rgba(233,246,255,0.62); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 240px; }
+                    .xrux-header-actions, .xrux-actions, .xrux-item-actions { display: flex; gap: 8px; align-items: center; }
+                    .xrux-icon-btn, .xrux-soft-btn, .xrux-tab, .xrux-row { border: 1px solid rgba(255,255,255,0.13); background: rgba(255,255,255,0.06); color: #e9f6ff; cursor: pointer; border-radius: 7px; }
+                    .xrux-icon-btn { min-width: 34px; height: 28px; font-size: 9px; font-weight: 800; }
+                    .xrux-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; padding: 10px 12px 0; }
+                    .xrux-tab { height: 30px; font-size: 10px; font-weight: 700; }
+                    .xrux-tab.active, .xrux-row.selected { background: rgba(34,211,238,0.16); border-color: rgba(34,211,238,0.5); color: #bff7ff; }
+                    .xrux-body { min-height: 0; overflow-y: auto; padding: 12px; }
+                    .xrux-section { display: flex; flex-direction: column; gap: 10px; }
+                    .xrux-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 10px; font-weight: 800; color: rgba(233,246,255,0.75); text-transform: uppercase; }
+                    .xrux-list { display: flex; flex-direction: column; gap: 6px; }
+                    .xrux-list.compact { max-height: 135px; overflow-y: auto; }
+                    .xrux-row { min-height: 34px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 11px; text-align: left; }
+                    .xrux-row span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+                    .xrux-row span:last-child { color: rgba(233,246,255,0.54); font-size: 9px; flex: none; }
+                    .xrux-soft-btn { min-height: 28px; padding: 0 10px; font-size: 10px; font-weight: 700; }
+                    .xrux-soft-btn:hover, .xrux-tab:hover, .xrux-row:hover, .xrux-icon-btn:hover { border-color: rgba(255,255,255,0.32); background: rgba(255,255,255,0.11); }
+                    .xrux-soft-btn.danger { color: #ffc2cc; border-color: rgba(255,92,122,0.28); }
+                    .xrux-empty { padding: 22px 12px; border: 1px dashed rgba(255,255,255,0.12); border-radius: 8px; color: rgba(233,246,255,0.48); text-align: center; font-size: 11px; }
+                    .xrux-inventory { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+                    .xrux-inventory.compact { grid-template-columns: 1fr; }
+                    .xrux-item { min-width: 0; border-radius: 8px; border: 1px solid rgba(255,255,255,0.12); background: rgba(255,255,255,0.055); padding: 10px; }
+                    .xrux-item.equipped { border-color: rgba(45,212,191,0.55); background: rgba(20,184,166,0.11); }
+                    .xrux-item-top, .xrux-item-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+                    .xrux-item-top strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+                    .xrux-item-top span, .xrux-item-meta { color: rgba(233,246,255,0.58); font-size: 9px; }
+                    .xrux-item-meta { margin: 7px 0 9px; }
+                    .xrux-field, .xrux-toggle { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 36px; padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.09); color: rgba(233,246,255,0.76); font-size: 11px; }
+                    .xrux-field select, .xrux-field input[type="range"] { max-width: 170px; }
+                    .xrux-toggle { justify-content: flex-start; }
+                    @media (max-width: 900px) { .xrux-panel { width: min(360px, calc(100vw - 86px)); } }
                 `}</style>
 
                 {Header({ 
@@ -987,6 +1028,13 @@ export class B3Editor extends HTMLElement {
                      }}
                 >
                 </div>
+
+                {XRUXOverlay({
+                    engine: this.engine,
+                    selectedObject: this.selectedObject,
+                    onRender: () => this.render(),
+                    onOpenSettings: () => { this.isSettingsOpen = true; this.render(); }
+                })}
 
                 <div class="resizer" onMouseDown={() => { this.isResizingLogic = true; }}></div>
 
