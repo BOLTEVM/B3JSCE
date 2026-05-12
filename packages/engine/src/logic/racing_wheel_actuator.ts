@@ -10,6 +10,7 @@ export class RacingWheelActuator extends Actuator {
 
     private selectedGamepadIndex: number = -1;
     private schema: HardwareSchema | null = null;
+    private appliedSchemaId: string | null = null;
 
     constructor(
         public preferredDevicePattern: string = '.*',
@@ -20,17 +21,23 @@ export class RacingWheelActuator extends Actuator {
     }
 
     execute(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) {
+        if (!this.enabled) return;
         if (!b3obj.isVehicle || !b3obj.vehicleId) return;
+        if (typeof navigator === 'undefined' || typeof navigator.getGamepads !== 'function') return;
 
         const gamepads = navigator.getGamepads();
         
         // Find or re-verify gamepad
-        if (this.selectedGamepadIndex === -1 || !gamepads[this.selectedGamepadIndex]) {
+        if (this.autoDetect && (this.selectedGamepadIndex === -1 || !gamepads[this.selectedGamepadIndex])) {
             this.findGamepad(gamepads);
         }
 
         const gamepad = gamepads[this.selectedGamepadIndex];
         if (!gamepad || !this.schema) return;
+        if (this.schema.defaultFFB && this.appliedSchemaId !== this.schema.id) {
+            engine.bridge?.setFFB(this.schema.defaultFFB);
+            this.appliedSchemaId = this.schema.id;
+        }
 
         // Extract raw values
         const rawSteer = gamepad.axes[this.schema.steering.index] || 0;
@@ -41,11 +48,15 @@ export class RacingWheelActuator extends Actuator {
         const steering = RacingHardwareRegistry.normalize(rawSteer, this.schema.steering) * this.sensitivity;
         
         // Pedals often need specific 0.0 -> 1.0 mapping from -1.0 -> 1.0 raw HID
-        const throttle = this.normalizePedal(rawThrottle, this.schema.throttle);
-        const brake = this.normalizePedal(rawBrake, this.schema.brake);
+        const throttle = RacingHardwareRegistry.normalizePedal(rawThrottle, this.schema.throttle);
+        const brake = RacingHardwareRegistry.normalizePedal(rawBrake, this.schema.brake);
 
         // Apply to VehicleManager
-        engine.vehicles.applyInput(b3obj.vehicleId, throttle * 1000, steering, brake * 500);
+        engine.vehicles.applyInput(b3obj.vehicleId, {
+            throttle,
+            steering,
+            brake
+        });
         
         // Prepare for FFB: We could emit an event here or call a bridge method
         // (Advanced FFB logic will be implemented in the HardwareBridge)
@@ -66,19 +77,9 @@ export class RacingWheelActuator extends Actuator {
         }
     }
 
-    private normalizePedal(raw: number, mapping: any): number {
-        let val = RacingHardwareRegistry.normalize(raw, mapping);
-        // Convert -1 to 1 range to 0 to 1 if necessary
-        // Most professional wheels rest at -1 or 1 and go to the opposite
-        // We'll assume standard 0-1 for now, but a sophisticated registry 
-        // would define the 'resting' value.
-        
-        // Simplified normalization for common sim-racing pedals:
-        // If raw is -1 to 1, we want 0 to 1.
-        return (val + 1) / 2; 
+    update(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) {
+        this.execute(delta, b3obj, engine);
     }
-
-    update(delta: number, b3obj: B3ObjectRef, engine: B3EngineRef) { /* Passive */ }
 
     toJSON() {
         return {
@@ -91,10 +92,14 @@ export class RacingWheelActuator extends Actuator {
     }
 
     static fromJSON(data: any, b3obj?: B3ObjectRef): RacingWheelActuator {
-        return new RacingWheelActuator(
-            data.preferredDevicePattern,
-            data.sensitivity,
-            data.autoDetect
+        const node = new RacingWheelActuator(
+            data.preferredDevicePattern ?? '.*',
+            data.sensitivity ?? 1.0,
+            data.autoDetect ?? true
         );
+        node.id = data.id;
+        node.guiMetadata = data.guiMetadata;
+        node.enabled = data.enabled;
+        return node;
     }
 }

@@ -54,6 +54,7 @@ export * from './audio_sources';
 export * from './ecs';
 export * from './serialization';
 export * from './glbParser';
+export * from './vehicle';
 export { registerShaderChunk, getShaderChunk, getShaderChunkNames } from './shaders/ShaderLib';
 export * from './ai_nodes';
 export * from './assets';
@@ -1385,6 +1386,7 @@ self.onmessage = function(e) {
             this.ecs.tick(delta);
             this.world.step(1 / 60, delta);
             this.objects.forEach(obj => obj.update(delta, this));
+            this.bridge.update(delta);
             this.xr.update(delta);
             this.optimizer.update();
             if (this.fogOverlay) this.fogOverlay.update(this.camera.position);

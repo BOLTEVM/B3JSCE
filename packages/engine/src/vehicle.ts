@@ -6,8 +6,30 @@ import { nanoid } from 'nanoid';
 /**
  * VehicleManager: Orchestrates the physical simulation of RaycastVehicles.
  */
+export interface VehicleInputCommand {
+    throttle?: number;
+    brake?: number;
+    clutch?: number;
+    steering?: number;
+    handbrake?: number;
+    gear?: number;
+}
+
+export interface VehicleTuning {
+    maxEngineForce: number;
+    maxBrakeForce: number;
+    maxSteeringValue: number;
+    maxHandbrakeForce: number;
+}
+
 export class VehicleManager {
     private vehicles: Map<string, CANNON.RaycastVehicle> = new Map();
+    private tuning: VehicleTuning = {
+        maxEngineForce: 1000,
+        maxBrakeForce: 500,
+        maxSteeringValue: 1,
+        maxHandbrakeForce: 750
+    };
 
     constructor(private engine: B3Engine) {}
 
@@ -58,22 +80,51 @@ export class VehicleManager {
         // We just need to ensure visual wheels match if we implement visual wheels later.
     }
 
-    public applyInput(id: string, engineForce: number, steering: number, brake: number) {
+    public setTuning(tuning: Partial<VehicleTuning>) {
+        this.tuning = { ...this.tuning, ...tuning };
+    }
+
+    public applyInput(id: string, command: VehicleInputCommand): void;
+    public applyInput(id: string, engineForce: number, steering: number, brake: number): void;
+    public applyInput(id: string, commandOrEngineForce: VehicleInputCommand | number, steering: number = 0, brake: number = 0) {
         const vehicle = this.vehicles.get(id);
         if (!vehicle) return;
 
+        const command = typeof commandOrEngineForce === 'number'
+            ? {
+                engineForce: commandOrEngineForce,
+                steering,
+                brake
+            }
+            : {
+                engineForce: this.clamp01(commandOrEngineForce.throttle ?? 0) * this.tuning.maxEngineForce,
+                steering: this.clamp(commandOrEngineForce.steering ?? 0, -1, 1) * this.tuning.maxSteeringValue,
+                brake: this.clamp01(commandOrEngineForce.brake ?? 0) * this.tuning.maxBrakeForce,
+                handbrake: this.clamp01(commandOrEngineForce.handbrake ?? 0) * this.tuning.maxHandbrakeForce
+            };
+
         // Front wheel steering
-        vehicle.setSteeringValue(steering, 0);
-        vehicle.setSteeringValue(steering, 1);
+        vehicle.setSteeringValue(command.steering, 0);
+        vehicle.setSteeringValue(command.steering, 1);
 
         // Rear wheel drive
-        vehicle.applyEngineForce(engineForce, 2);
-        vehicle.applyEngineForce(engineForce, 3);
+        vehicle.applyEngineForce(command.engineForce, 2);
+        vehicle.applyEngineForce(command.engineForce, 3);
 
         // All wheel braking
-        vehicle.setBrake(brake, 0);
-        vehicle.setBrake(brake, 1);
-        vehicle.setBrake(brake, 2);
-        vehicle.setBrake(brake, 3);
+        const frontBrake = command.brake;
+        const rearBrake = Math.max(command.brake, command.handbrake ?? 0);
+        vehicle.setBrake(frontBrake, 0);
+        vehicle.setBrake(frontBrake, 1);
+        vehicle.setBrake(rearBrake, 2);
+        vehicle.setBrake(rearBrake, 3);
+    }
+
+    private clamp01(value: number) {
+        return this.clamp(value, 0, 1);
+    }
+
+    private clamp(value: number, min: number, max: number) {
+        return Math.max(min, Math.min(max, value));
     }
 }

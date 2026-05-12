@@ -45,6 +45,7 @@ export default defineConfig({
       '/api/hardware': {
         target: 'http://localhost:8081',
         changeOrigin: true,
+        ws: true,
       },
       '/ws': {
         target: 'ws://localhost:8000',

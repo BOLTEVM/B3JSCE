@@ -12,6 +12,7 @@ export { MotionActuator, MiningActuator, Web3ConnectActuator, InventoryActuator 
 export { AudioReactiveActuator, SpinnerActuator, VideoPlayerActuator } from './bolt_nodes';
 export { SwapSensor, SwapController, SwapActuator } from './swap_nodes';
 export { RacingWheelActuator } from './racing_wheel_actuator';
+export { VehicleDriveActuator } from '../vehicle_nodes';
 
 // ZK Privacy Nodes
 export { ZKZoneSensor, ZKProximitySensor, ZKRevealSensor, ZKCommitActuator, ZKRevealActuator, ZKProveActuator, ZKZoneActuator } from './zk_nodes';
@@ -58,6 +59,7 @@ import { SwapSensor, SwapController, SwapActuator } from './swap_nodes';
 import { CSharpController } from './csharp';
 import { ZKZoneSensor, ZKProximitySensor, ZKRevealSensor, ZKCommitActuator, ZKRevealActuator, ZKProveActuator, ZKZoneActuator } from './zk_nodes';
 import { RacingWheelActuator } from './racing_wheel_actuator';
+import { VehicleDriveActuator } from '../vehicle_nodes';
 
 // V1 Sensors
 registerSensorType('KeyboardSensor', (d) => KeyboardSensor.fromJSON(d));
@@ -81,6 +83,7 @@ registerActuatorType('SpinnerActuator', (d) => SpinnerActuator.fromJSON(d));
 registerActuatorType('VideoPlayerActuator', (d) => VideoPlayerActuator.fromJSON(d));
 registerActuatorType('SwapActuator', (d) => SwapActuator.fromJSON(d));
 registerActuatorType('RacingWheelActuator', (d) => RacingWheelActuator.fromJSON(d));
+registerActuatorType('VehicleDriveActuator', (d) => VehicleDriveActuator.fromJSON(d));
 
 // ZK Privacy Nodes
 registerSensorType('ZKZoneSensor', (d) => ZKZoneSensor.fromJSON(d));
@@ -140,4 +143,3 @@ registerActuatorType('SetSkyColorNode', (d) => SetSkyColorNode.fromJSON(d));
 registerActuatorType('SetSunNode', (d) => SetSunNode.fromJSON(d));
 registerActuatorType('WeatherNode', (d) => WeatherNode.fromJSON(d));
 registerActuatorType('StarFieldNode', (d) => StarFieldNode.fromJSON(d));
-
