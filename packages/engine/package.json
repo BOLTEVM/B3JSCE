@@ -3,6 +3,8 @@
   "version": "1.0.0",
   "main": "./src/index.ts",
   "dependencies": {
+    "@b3js/web3": "workspace:*",
+    "@b3js/zk": "workspace:*",
     "cannon-es": "latest",
     "nanoid": "^5.1.9",
     "roslib": "^2.1.0",

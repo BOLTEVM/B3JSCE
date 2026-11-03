@@ -4,6 +4,7 @@
   "main": "./src/index.tsx",
   "dependencies": {
     "@b3js/engine": "workspace:*",
+    "@b3js/zk": "workspace:*",
     "nanostores": "^1.3.0",
     "webjsx": "latest"
   },

@@ -8,7 +8,9 @@
   ],
   "scripts": {
     "dev": "bun run --filter web-app dev",
-    "build": "bun run --filter web-app build"
+    "build": "bun run --filter web-app build",
+    "miner:stub": "bun tools/mining-middleware/server.ts",
+    "miner:adapter": "bun tools/mining-middleware/adapter.ts"
   },
   "dependencies": {
     "@types/three": "^0.184.0",

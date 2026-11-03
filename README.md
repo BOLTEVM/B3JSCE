@@ -86,6 +86,16 @@ bun run dev
 bun run build
 ```
 
+### Mining Middleware (QUAI / QuaiAxe)
+```bash
+# Dev: local miner telemetry stub (WS :8001 + HTTP :8081)
+bun run miner:stub
+
+# Production: bridge a real miner's HTTP API (Rigel etc.) into the engine
+bun run miner:adapter
+```
+Protocol details and hardware-adapter guide: [docs/mining-middleware.md](docs/mining-middleware.md)
+
 ## 📄 License
 
 Internal Development Version. All rights reserved.

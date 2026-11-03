@@ -13,6 +13,20 @@ export class SpacetimeManager {
         return this.currentLobbyId;
     }
 
+    /** Local player's SpacetimeDB identity as hex (null when offline). */
+    public get identityHex(): string | null {
+        try {
+            return this.conn?.identity?.toHexString?.() ?? null;
+        } catch {
+            return null;
+        }
+    }
+
+    /** Whether the multiplayer connection is live. */
+    public get isConnected(): boolean {
+        return this.isOnline;
+    }
+
     private readonly CACHE_KEY = 'B3JS_OFFLINE_CACHE';
 
     constructor(private engine: B3Engine) {
@@ -119,6 +133,53 @@ export class SpacetimeManager {
                         null
                     );
                 }
+            });
+        }
+
+        // ─── ZK Ceremony tables ─────────────────────────────────
+        // Forward all ceremony rows to the CeremonyCoordinator, which
+        // verifies hash chains before accepting remote state.
+        if (this.conn.db.ZKCeremony) {
+            this.conn.db.ZKCeremony.onInsert((row: any) => this.engine.ceremony.handleCeremonyRow(row));
+            this.conn.db.ZKCeremony.onUpdate((_old: any, row: any) => this.engine.ceremony.handleCeremonyRow(row));
+        }
+        if (this.conn.db.ZKCeremonyContribution) {
+            this.conn.db.ZKCeremonyContribution.onInsert((row: any) => this.engine.ceremony.handleContributionRow(row));
+        }
+        if (this.conn.db.ZKCircuitBlueprint) {
+            this.conn.db.ZKCircuitBlueprint.onInsert((row: any) => this.engine.ceremony.handleBlueprintRow(row));
+            this.conn.db.ZKCircuitBlueprint.onUpdate((_old: any, row: any) => this.engine.ceremony.handleBlueprintRow(row));
+        }
+
+        // ─── QuaiAxe Furnace Wall tables ────────────────────────
+        // Remote pixels/burns flow into the QuaiAxeGame; local actions
+        // are pushed via pushQaxePixel / pushQaxeBurn.
+        if (this.conn.db.QuaiAxeWallPixel) {
+            const applyPixel = (row: any) => {
+                if (this.currentLobbyId && row.lobby_id !== this.currentLobbyId) return;
+                // Skip our own pixels — already applied locally
+                const local = this.conn.identity;
+                if (local && row.painter_identity.isEqual(local)) return;
+                this.engine.quaiAxe?.applyRemotePaint({
+                    x: Number(row.x), y: Number(row.y), color: row.color,
+                    painter: row.painter_name || row.painter_identity.toHexString().substring(0, 10),
+                    paintedAt: Number(row.painted_at),
+                });
+            };
+            this.conn.db.QuaiAxeWallPixel.onInsert(applyPixel);
+            this.conn.db.QuaiAxeWallPixel.onUpdate((_old: any, row: any) => applyPixel(row));
+        }
+        if (this.conn.db.QuaiAxeBurn) {
+            this.conn.db.QuaiAxeBurn.onInsert((row: any) => {
+                if (this.currentLobbyId && row.lobby_id !== this.currentLobbyId) return;
+                const local = this.conn.identity;
+                if (local && row.miner_identity.isEqual(local)) return;
+                this.engine.quaiAxe?.handleRemoteBurn({
+                    minerName: row.miner_name,
+                    burnShareBps: Number(row.burn_share_bps),
+                    burnBuyWei: BigInt(row.burn_buy_wei),
+                    grossWei: BigInt(row.gross_wei),
+                });
             });
         }
     }
@@ -283,5 +344,115 @@ export class SpacetimeManager {
             payload: JSON.stringify(data),
             duration_ms: data.duration || 5000,
         });
+    }
+
+    // ─── ZK Ceremony Methods ────────────────────────────────────
+    // These reducers are the shared coordination surface for human and
+    // agentic participants — agents call the same reducers over their
+    // own SpacetimeDB connections.
+
+    /** Publish an in-game-built circuit blueprint. */
+    public pushCircuitBlueprint(data: {
+        id: string; name: string; blueprint_json: string;
+        blueprint_hash: string; constraint_count: number;
+    }): void {
+        if (!this.isOnline || !this.currentLobbyId) return;
+        console.log(`B3JS Spacetime: Publishing circuit blueprint "${data.name}"`);
+        this.conn?.reducers?.publish_circuit_blueprint?.({
+            lobby_id: this.currentLobbyId,
+            ...data,
+        });
+    }
+
+    /** Create a ceremony (opened immediately, bound to a blueprint). */
+    public pushCeremonyCreate(data: {
+        id: string; name: string; circuit_blueprint_id: string;
+        blueprint_hash: string; genesis_hash: string; config_json: string;
+    }): void {
+        if (!this.isOnline || !this.currentLobbyId) return;
+        console.log(`B3JS Spacetime: Creating ceremony "${data.name}"`);
+        this.conn?.reducers?.create_ceremony?.({
+            lobby_id: this.currentLobbyId,
+            ...data,
+        });
+    }
+
+    /** Join a ceremony's contribution queue (kind: 'human' | 'agent'). */
+    public pushCeremonyJoinQueue(ceremonyId: string, displayName: string, kind: string): void {
+        if (!this.isOnline) return;
+        this.conn?.reducers?.join_ceremony_queue?.({
+            ceremony_id: ceremonyId,
+            display_name: displayName,
+            kind,
+        });
+    }
+
+    /** Leave a ceremony queue (while open). */
+    public pushCeremonyLeaveQueue(ceremonyId: string): void {
+        if (!this.isOnline) return;
+        this.conn?.reducers?.leave_ceremony_queue?.({ ceremony_id: ceremonyId });
+    }
+
+    /** Start a ceremony (creator only). */
+    public pushCeremonyStart(ceremonyId: string): void {
+        if (!this.isOnline) return;
+        this.conn?.reducers?.start_ceremony?.({ ceremony_id: ceremonyId });
+    }
+
+    // ─── QuaiAxe Furnace Wall Methods ───────────────────────────
+
+    /** Publish a locally painted wall pixel to the lobby. */
+    public pushQaxePixel(pixel: { x: number; y: number; color: string; painter: string }): void {
+        if (!this.isOnline || !this.currentLobbyId) return;
+        this.conn?.reducers?.paint_qaxe_pixel?.({
+            lobby_id: this.currentLobbyId,
+            x: pixel.x,
+            y: pixel.y,
+            color: pixel.color,
+            painter_name: pixel.painter,
+        });
+    }
+
+    /** Publish a burn batch to the lobby's shared furnace log. */
+    public pushQaxeBurn(data: {
+        batch_id: string; miner_name: string; burn_share_bps: number;
+        gross_wei: string; burn_buy_wei: string; payout_wei: string;
+        fee_wei: string; gas_wei: string;
+    }): void {
+        if (!this.isOnline || !this.currentLobbyId) return;
+        this.conn?.reducers?.record_qaxe_burn?.({
+            lobby_id: this.currentLobbyId,
+            ...data,
+        });
+    }
+
+    /** Submit a computed contribution on your turn. */
+    public pushCeremonyContribution(ceremonyId: string, data: {
+        entropy_commitment: string; accumulator_hash: string; transcript_hash: string;
+        entropy_source: string; duration_ms: number; attestation: string;
+    }): void {
+        if (!this.isOnline) return;
+        console.log(`B3JS Spacetime: Submitting ceremony contribution (${data.entropy_source})`);
+        this.conn?.reducers?.submit_ceremony_contribution?.({
+            ceremony_id: ceremonyId,
+            ...data,
+            duration_ms: BigInt(data.duration_ms),
+        });
+    }
+
+    /** Finalize a ceremony (creator only). */
+    public pushCeremonyFinalize(ceremonyId: string, finalParametersHash: string, beaconHash: string): void {
+        if (!this.isOnline) return;
+        this.conn?.reducers?.finalize_ceremony?.({
+            ceremony_id: ceremonyId,
+            final_parameters_hash: finalParametersHash,
+            beacon_hash: beaconHash,
+        });
+    }
+
+    /** Abort a ceremony (creator only). */
+    public pushCeremonyAbort(ceremonyId: string): void {
+        if (!this.isOnline) return;
+        this.conn?.reducers?.abort_ceremony?.({ ceremony_id: ceremonyId });
     }
 }

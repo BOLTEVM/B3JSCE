@@ -247,3 +247,167 @@ export interface ZKWorkerResponse {
     /** Time taken in milliseconds. */
     durationMs: number;
 }
+
+// ─── Circuit Builder Types (Gameplay Layer) ──────────────────────
+
+/**
+ * Gate types for the in-world circuit builder.
+ * Players place these as 3D objects and wire them together;
+ * the resulting graph compiles to an arithmetic circuit blueprint.
+ */
+export type CircuitGateType =
+    | 'input'       // Public or private input signal
+    | 'const'       // Constant field element
+    | 'add'         // Σ inputs (mod p)
+    | 'mul'         // Π inputs (mod p) — costs 1 R1CS constraint
+    | 'poseidon'    // Poseidon(inputs) — ZK-friendly hash
+    | 'iszero'      // 1 if input == 0 else 0
+    | 'select'      // cond ? a : b  (inputs: [cond, a, b])
+    | 'assert_eq'   // Constraint: inputs[0] === inputs[1]
+    | 'output';     // Public output signal (passthrough)
+
+/** A single gate instance in a circuit blueprint. */
+export interface CircuitGate {
+    id: string;
+    type: CircuitGateType;
+    label?: string;
+    /** For 'const' gates: the constant value as a decimal string. */
+    constValue?: string;
+    /** For 'input' gates: whether the signal is private (witness-only). */
+    isPrivate?: boolean;
+    /** IDs of gates feeding this gate, in operand order. */
+    inputs: string[];
+    /** World position (set when placed as a 3D object in-game). */
+    position?: { x: number; y: number; z: number };
+    metadata?: Record<string, any>;
+}
+
+/** A serializable circuit design — the artifact ceremonies produce keys for. */
+export interface CircuitBlueprint {
+    id: string;
+    name: string;
+    gates: CircuitGate[];
+    /** IDs of 'output' gates, in public-signal order. */
+    outputs: string[];
+    creatorId?: string;
+    createdAt: number;
+    version: number;
+}
+
+/** Result of evaluating a circuit blueprint against concrete inputs. */
+export interface CircuitEvaluationResult {
+    /** Values of the output gates, in blueprint.outputs order. */
+    outputs: bigint[];
+    /** Full witness: gate id → field value. */
+    witness: Map<string, bigint>;
+    /** Estimated R1CS constraint count. */
+    constraintCount: number;
+    /** True when all assert_eq constraints held. */
+    satisfied: boolean;
+    /** Descriptions of failed assertions (empty when satisfied). */
+    failures: string[];
+}
+
+// ─── Ceremony Types (Multi-Party Trusted Setup) ──────────────────
+
+/** Lifecycle of a ZK setup ceremony. */
+export type CeremonyPhase =
+    | 'draft'        // Being configured, not joinable
+    | 'open'         // Accepting participants into the queue
+    | 'running'      // Sequential contribution round in progress
+    | 'finalizing'   // All contributions in; awaiting beacon/finalization
+    | 'finalized'    // Final parameters produced and attested
+    | 'aborted';     // Cancelled (timeout, invalid contribution, host abort)
+
+/** Who is contributing — a human player or an agentic participant. */
+export type CeremonyParticipantKind = 'human' | 'agent';
+
+export interface CeremonyParticipant {
+    /** Identity hex (SpacetimeDB identity) or agent ID. */
+    id: string;
+    kind: CeremonyParticipantKind;
+    displayName: string;
+    joinedAt: number;
+}
+
+/**
+ * One link in the ceremony hash chain.
+ *
+ * The entropy itself is NEVER published — only its SHA-256 commitment.
+ * A contributor may later reveal their entropy to produce an attestation
+ * of honest participation (anyone can recompute the chain link).
+ */
+export interface CeremonyContribution {
+    /** 0-based position in the contribution sequence. */
+    index: number;
+    participantId: string;
+    participantKind: CeremonyParticipantKind;
+    /** Accumulator hash BEFORE this contribution (the challenge). */
+    prevAccumulatorHash: string;
+    /** SHA-256 of the raw entropy bytes (the response commitment). */
+    entropyCommitment: string;
+    /** Accumulator hash AFTER mixing entropy: SHA256(prev || entropyCommitment). */
+    accumulatorHash: string;
+    /** Hash of the canonical transcript line for this contribution. */
+    transcriptHash: string;
+    /** How the entropy was gathered ('random' | 'mouse' | 'agent-seed' | 'hardware'). */
+    entropySource: string;
+    durationMs: number;
+    timestamp: number;
+    /** Optional free-text attestation (e.g. "contributed from the Crystal Sanctum"). */
+    attestation?: string;
+}
+
+/** Tunable parameters for a ceremony. */
+export interface ZKCeremonyConfig {
+    /** Minimum entropy bytes required per contribution. */
+    minEntropyBytes: number;
+    /** Max participants in the queue (0 = unlimited). */
+    maxContributors: number;
+    /** Per-turn time limit in ms (0 = no limit). */
+    turnTimeoutMs: number;
+    /** Whether finalization requires an external public beacon. */
+    requireBeacon: boolean;
+}
+
+export const DEFAULT_CEREMONY_CONFIG: ZKCeremonyConfig = {
+    minEntropyBytes: 32,
+    maxContributors: 0,
+    turnTimeoutMs: 0,
+    requireBeacon: false,
+};
+
+/** A full ceremony record. */
+export interface ZKCeremony {
+    id: string;
+    lobbyId?: string;
+    name: string;
+    /** Circuit blueprint this ceremony produces parameters for. */
+    circuitBlueprintId?: string;
+    /** SHA-256 of the blueprint, binding the ceremony to an exact circuit. */
+    blueprintHash?: string;
+    phase: CeremonyPhase;
+    creatorId: string;
+    config: ZKCeremonyConfig;
+    /** Contribution queue — order of this array is the turn order. */
+    participants: CeremonyParticipant[];
+    contributions: CeremonyContribution[];
+    /** Current accumulator hash — the challenge for the next contributor. */
+    accumulatorHash: string;
+    createdAt: number;
+    finalizedAt?: number;
+    /** SHA-256 of the final parameter set (accumulator mixed with beacon). */
+    finalParametersHash?: string;
+    /** The public beacon value used at finalization (hex), if any. */
+    beaconHash?: string;
+}
+
+/** Events emitted by CeremonyManager. */
+export type CeremonyEvent =
+    | { type: 'phase'; ceremonyId: string; phase: CeremonyPhase }
+    | { type: 'participant_joined'; ceremonyId: string; participant: CeremonyParticipant }
+    | { type: 'turn'; ceremonyId: string; participant: CeremonyParticipant | null; index: number }
+    | { type: 'contribution'; ceremonyId: string; contribution: CeremonyContribution }
+    | { type: 'finalized'; ceremonyId: string; finalParametersHash: string };
+
+export type CeremonyEventListener = (event: CeremonyEvent) => void;

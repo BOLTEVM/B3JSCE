@@ -2,9 +2,19 @@ import { ContractRegistry } from './ContractRegistry';
 import { AssetRegistry } from './AssetRegistry';
 import { VaultManager } from './VaultManager';
 import { SwapProvider, SwapQuote, SwapQuoteParams, BridgeQuoteParams } from './SwapProvider';
+import { QuaiMinerClient, HashrateTracker, quaiAxeSplit, formatQuai } from './QuaiMiner';
 
-export { ContractRegistry, AssetRegistry, VaultManager, SwapProvider };
+export { ContractRegistry, AssetRegistry, VaultManager, SwapProvider, QuaiMinerClient, HashrateTracker, quaiAxeSplit, formatQuai };
 export type { SwapQuote, SwapQuoteParams, BridgeQuoteParams };
+export type { QuaiMinerConfig, QuaiMinerTelemetry, QuaiMinerEvent, MinerConnectionState, ShareRecord, QuaiAxeSplit } from './QuaiMiner';
+export {
+    DEFAULT_QUAI_MINER_CONFIG,
+    QUAIAXE_FEE_BPS,
+    QUAIAXE_MAX_GAS_BPS,
+    QUAIAXE_MIN_BURN_BPS,
+    QUAI_WEI,
+    BPS,
+} from './QuaiMiner';
 
 /**
  * B3JS Web3 Core

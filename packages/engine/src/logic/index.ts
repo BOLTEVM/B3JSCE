@@ -18,6 +18,12 @@ export { VehicleDriveActuator } from '../vehicle_nodes';
 // ZK Privacy Nodes
 export { ZKZoneSensor, ZKProximitySensor, ZKRevealSensor, ZKCommitActuator, ZKRevealActuator, ZKProveActuator, ZKZoneActuator } from './zk_nodes';
 
+// ZK Ceremony Nodes
+export { CeremonyTurnSensor, CeremonyPhaseSensor, CeremonyContributionSensor, CeremonyContributeActuator, CeremonyFinalizeActuator, CeremonyUnlockActuator } from './ceremony_nodes';
+
+// QuaiAxe Burn-Mining Nodes
+export { QuaiAxeMiningSensor, QuaiAxeBurnSensor, QuaiAxeFeedActuator, QuaiAxePaintActuator } from './qaxe_nodes';
+
 // V2 Pin System
 export { canConnect, PIN_COLORS } from './pins';
 export type { IPin, IConnection, PinDataType, PinDirection } from './pins';
@@ -60,6 +66,8 @@ import { SwapSensor, SwapController, SwapActuator } from './swap_nodes';
 import { WalletActuator, PinPadActuator } from './wallet_nodes';
 import { CSharpController } from './csharp';
 import { ZKZoneSensor, ZKProximitySensor, ZKRevealSensor, ZKCommitActuator, ZKRevealActuator, ZKProveActuator, ZKZoneActuator } from './zk_nodes';
+import { CeremonyTurnSensor, CeremonyPhaseSensor, CeremonyContributionSensor, CeremonyContributeActuator, CeremonyFinalizeActuator, CeremonyUnlockActuator } from './ceremony_nodes';
+import { QuaiAxeMiningSensor, QuaiAxeBurnSensor, QuaiAxeFeedActuator, QuaiAxePaintActuator } from './qaxe_nodes';
 import { RacingWheelActuator } from './racing_wheel_actuator';
 import { VehicleDriveActuator } from '../vehicle_nodes';
 
@@ -97,6 +105,20 @@ registerActuatorType('ZKCommitActuator', (d) => ZKCommitActuator.fromJSON(d));
 registerActuatorType('ZKRevealActuator', (d) => ZKRevealActuator.fromJSON(d));
 registerActuatorType('ZKProveActuator', (d) => ZKProveActuator.fromJSON(d));
 registerActuatorType('ZKZoneActuator', (d) => ZKZoneActuator.fromJSON(d));
+
+// ZK Ceremony Nodes
+registerSensorType('CeremonyTurnSensor', (d) => CeremonyTurnSensor.fromJSON(d));
+registerSensorType('CeremonyPhaseSensor', (d) => CeremonyPhaseSensor.fromJSON(d));
+registerSensorType('CeremonyContributionSensor', (d) => CeremonyContributionSensor.fromJSON(d));
+registerActuatorType('CeremonyContributeActuator', (d) => CeremonyContributeActuator.fromJSON(d));
+registerActuatorType('CeremonyFinalizeActuator', (d) => CeremonyFinalizeActuator.fromJSON(d));
+registerActuatorType('CeremonyUnlockActuator', (d) => CeremonyUnlockActuator.fromJSON(d));
+
+// QuaiAxe Burn-Mining Nodes
+registerSensorType('QuaiAxeMiningSensor', (d) => QuaiAxeMiningSensor.fromJSON(d));
+registerSensorType('QuaiAxeBurnSensor', (d) => QuaiAxeBurnSensor.fromJSON(d));
+registerActuatorType('QuaiAxeFeedActuator', (d) => QuaiAxeFeedActuator.fromJSON(d));
+registerActuatorType('QuaiAxePaintActuator', (d) => QuaiAxePaintActuator.fromJSON(d));
 
 // ─── Register V2 Graph Node Types ──────────────────────────────
 import { OnStartNode, OnTickNode, OnKeyNode, OnCollisionNode, OnTimerNode, OnInteractNode } from './nodes/events';

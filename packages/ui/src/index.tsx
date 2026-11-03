@@ -1,6 +1,7 @@
 import * as webjsx from 'webjsx';
 import * as THREE from 'three';
-import { B3Engine, B3Object, Sensor, Controller, Actuator, KeyboardSensor, AndController, MotionActuator, createSwapScaleTemplate } from '@b3js/engine';
+import { B3Engine, B3Object, Sensor, Controller, Actuator, KeyboardSensor, AndController, MotionActuator, createSwapScaleTemplate, ZK_CEREMONY_CURRICULUM, QUAIAXE_CURRICULUM } from '@b3js/engine';
+import { TutorialOverlay } from './components/TutorialOverlay';
 import { selectObject as storeSelectObject } from './store/selectionStore';
 import { getActiveScheme } from './store/colorScheme';
 
@@ -76,7 +77,7 @@ export class B3Editor extends HTMLElement {
     private wireMousePos: { x: number, y: number } = { x: 0, y: 0 };
     private selectedShaderNode: any | null = null;
     private isResizingLogic: boolean = false;
-    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' | 'assetBank' | 'haptics' | 'zk' | 'trading' = 'logic';
+    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' | 'assetBank' | 'haptics' | 'zk' | 'trading' | 'ceremony' | 'qaxe' = 'logic';
 
     private miningEventHandlers: Partial<Record<'fractal' | 'quai' | 'qrl', () => void>> = {};
     private documentationShortcutBound: boolean = false;
@@ -94,6 +95,8 @@ export class B3Editor extends HTMLElement {
         HapticsPanel: null,
         ZKPanel: null,
         TradingPanel: null,
+        CeremonyPanel: null,
+        QuaiAxePanel: null,
     };
 
     private lazyComponentPromises: Record<string, Promise<void> | null> = {};
@@ -564,6 +567,8 @@ export class B3Editor extends HTMLElement {
                 this.render();
             }
         });
+        // Tutorial progression → re-render the overlay
+        window.addEventListener('b3js:tutorial:step', () => this.render());
 
         if (!this.documentationShortcutBound) {
             window.addEventListener('keydown', this.handleDocumentationShortcut);
@@ -683,6 +688,8 @@ export class B3Editor extends HTMLElement {
         if (tab === 'robotics') this.loadLazyComponent('RoboticsPanel', () => import('./components/RoboticsPanel'));
         if (tab === 'assetBank') this.loadLazyComponent('AssetBank', () => import('./components/AssetBank'));
         if (tab === 'zk') this.loadLazyComponent('ZKPanel', () => import('./components/ZKPanel'));
+        if (tab === 'ceremony') this.loadLazyComponent('CeremonyPanel', () => import('./components/CeremonyPanel'));
+        if (tab === 'qaxe') this.loadLazyComponent('QuaiAxePanel', () => import('./components/QuaiAxePanel'));
         if (tab === 'trading') this.loadLazyComponent('TradingPanel', () => import('./components/TradingPanel'));
         if (tab === 'haptics') this.loadLazyComponent('HapticsPanel', () => import('./components/HapticsPanel'));
     }
@@ -871,6 +878,8 @@ export class B3Editor extends HTMLElement {
         const HapticsPanel = this.lazyComponents.HapticsPanel;
         const ZKPanel = this.lazyComponents.ZKPanel;
         const TradingPanel = this.lazyComponents.TradingPanel;
+        const CeremonyPanel = this.lazyComponents.CeremonyPanel;
+        const QuaiAxePanel = this.lazyComponents.QuaiAxePanel;
 
 
         webjsx.applyDiff(this.root, (
@@ -1070,6 +1079,12 @@ export class B3Editor extends HTMLElement {
                         <div class={`menu-item ${this.activeBottomTab === 'zk' ? 'active' : ''}`} 
                              style="height: 24px; font-size: 9px; color: #00ff88;"
                              onClick={() => this.setBottomTab('zk')}>ZK Privacy</div>
+                        <div class={`menu-item ${this.activeBottomTab === 'ceremony' ? 'active' : ''}`} 
+                             style="height: 24px; font-size: 9px; color: #b366ff;"
+                             onClick={() => this.setBottomTab('ceremony')}>Ceremonies</div>
+                        <div class={`menu-item ${this.activeBottomTab === 'qaxe' ? 'active' : ''}`} 
+                             style="height: 24px; font-size: 9px; color: #ff7a1a;"
+                             onClick={() => this.setBottomTab('qaxe')}>QuaiAxe</div>
                         <div class={`menu-item ${this.activeBottomTab === 'trading' ? 'active' : ''}`} 
                              style="height: 24px; font-size: 9px; color: #3b82f6;"
                              onClick={() => this.setBottomTab('trading')}>Trading Agents</div>
@@ -1112,6 +1127,14 @@ export class B3Editor extends HTMLElement {
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
                     {this.activeBottomTab === 'zk' && (ZKPanel ? ZKPanel({ 
+                        engine: this.engine,
+                        onRender: () => this.render()
+                    }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'ceremony' && (CeremonyPanel ? CeremonyPanel({ 
+                        engine: this.engine,
+                        onRender: () => this.render()
+                    }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'qaxe' && (QuaiAxePanel ? QuaiAxePanel({ 
                         engine: this.engine,
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
@@ -1185,6 +1208,11 @@ export class B3Editor extends HTMLElement {
                 {AboutModal && AboutModal({ 
                     isOpen: this.isAboutOpen, 
                     onClose: () => { this.isAboutOpen = false; this.render(); } 
+                })}
+
+                {TutorialOverlay({ 
+                    engine: this.engine,
+                    onRender: () => this.render()
                 })}
             </div>
         ) as any);
@@ -1262,6 +1290,26 @@ export class B3Editor extends HTMLElement {
                 { label: 'System: Bolt Tablet (Outliner)', action: () => this.engine?.spawnBoltTabletOutliner() },
                 { label: 'Exchange: Swap Scale', action: () => {
                     if (this.engine) createSwapScaleTemplate(this.engine);
+                }},
+                { type: 'divider' },
+                { label: '🔮 Ceremony Arena (Tutorial World)', action: async () => {
+                    if (!this.engine) return;
+                    await this.engine.createCeremonyArenaTemplate();
+                    this.render();
+                }},
+                { label: '🔥 QuaiAxe Furnace (Tutorial World)', action: async () => {
+                    if (!this.engine) return;
+                    await this.engine.createQuaiAxeFurnaceTemplate();
+                    this.setBottomTab('qaxe');
+                    this.render();
+                }},
+                { label: '🎓 Restart Ceremony Course', action: () => {
+                    this.engine?.tutorial?.startCurriculum('zk-ceremony', ZK_CEREMONY_CURRICULUM, true);
+                    this.render();
+                }},
+                { label: '🎓 Restart QuaiAxe Course', action: () => {
+                    this.engine?.tutorial?.startCurriculum('quaiaxe', QUAIAXE_CURRICULUM, true);
+                    this.render();
                 }}
             ],
             'Selection': [

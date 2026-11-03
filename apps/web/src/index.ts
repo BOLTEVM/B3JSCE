@@ -61,6 +61,41 @@ const initEngine = async () => {
     const engine = new B3Engine(viewportContainer);
     (window as any).B3_ENGINE_INSTANCE = engine;
 
+    // ── Agentic ZK Ceremony API ────────────────────────────────
+    // Scriptable surface for agentic users (bots, LLM agents, tests).
+    // Agents are first-class ceremony participants: they join queues,
+    // contribute seed-bound entropy, and attest their contributions —
+    // via the same code path as human players.
+    //
+    //   const agent = B3_ZK.spawnAgent('Aria', 'my-secret-seed');
+    //   B3_ZK.listCeremonies();
+    //   B3_ZK.agentPlan(agent, '<ceremonyId>');   // what should it do?
+    import('@b3js/zk').then((zk) => {
+        (window as any).B3_ZK = {
+            spawnAgent(name: string, seed: string) {
+                const agent = new zk.ZKCeremonyAgent(`agent_${seed}_${Date.now().toString(36)}`, name, seed);
+                engine.ceremony.registerAgent(agent);
+                console.log(`B3JS ZK: Agent "${name}" registered and watching for turns.`);
+                return agent;
+            },
+            listCeremonies: () => engine.ceremony.manager.listCeremonies(),
+            listBlueprints: () => Array.from(engine.ceremony.blueprints.values()),
+            createCeremony: (name: string, blueprintId?: string) =>
+                engine.ceremony.createCeremony(name, blueprintId),
+            join: (ceremonyId: string, kind: 'human' | 'agent' = 'agent') =>
+                engine.ceremony.joinCeremony(ceremonyId, kind),
+            agentPlan: (agent: any, ceremonyId: string) =>
+                agent.planAction(engine.ceremony.manager.getCeremony(ceremonyId), engine.ceremony.manager),
+            exportTranscript: (ceremonyId: string) =>
+                engine.ceremony.manager.exportTranscript(ceremonyId),
+            verifyTranscript: (json: string) =>
+                engine.ceremony.manager.verifyTranscript(json),
+            forge: () => engine.circuitForge,
+            zk,
+        };
+        console.log('B3JS ZK: Agentic ceremony API ready → window.B3_ZK');
+    });
+
     editor.setEngine(engine);
 
     // ── Phase 3: Load BOLTEVM World (or restore saved project) ─

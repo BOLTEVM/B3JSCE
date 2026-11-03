@@ -15,6 +15,10 @@ import { VehicleManager } from './vehicle';
 import { CombatManager } from './combat';
 import { InventoryManager, B3Item } from './inventory';
 import { SpacetimeManager } from './spacetime';
+import { CeremonyCoordinator } from './ceremony';
+import { CircuitForge } from './circuitforge';
+import { QuaiAxeGame } from './quaiAxe';
+import { TutorialManager } from './tutorial';
 import { ProjectManager } from './project';
 import { RoboticsManager } from './robotics/RoboticsManager';
 import { UnitreeManager } from './robotics/UnitreeManager';
@@ -71,6 +75,11 @@ export {
     createTokenCoin, createPinPad
 } from './factories';
 export { createDefaultEnvironment, createBoltevmTemplate, createExchangeTemplate, createSpatialWalletTemplate, createSwapScaleTemplate, createTradingAgentsTemplate } from './templates';
+export { createCeremonyArenaTemplate } from './ceremonyArena';
+export { createQuaiAxeFurnaceTemplate } from './quaiAxeFurnace';
+export * from './quaiAxe';
+export { TutorialManager, ZK_CEREMONY_CURRICULUM, QUAIAXE_CURRICULUM } from './tutorial';
+export type { TutorialStep } from './tutorial';
 
 // ─── Internal Imports for B3Engine ─────────────────────────────
 import { B3Object } from './core/B3Object';
@@ -161,6 +170,10 @@ export class B3Engine {
     vehicles: VehicleManager;
     combat: CombatManager;
     public spacetime: SpacetimeManager;
+    public ceremony: CeremonyCoordinator;
+    public circuitForge: CircuitForge;
+    public quaiAxe: QuaiAxeGame;
+    public tutorial: TutorialManager = new TutorialManager();
     public robotics!: RoboticsManager;
     public digitalTwin!: DigitalTwinSystem;
     public economics: EconomyManager;
@@ -640,6 +653,12 @@ export class B3Engine {
         this.vehicles = new VehicleManager(this);
         this.combat = new CombatManager(this);
         this.spacetime = new SpacetimeManager(this);
+        // ZK Ceremonies — verified local mirror + multiplayer coordination
+        this.ceremony = new CeremonyCoordinator(this);
+        // In-world circuit building (gate placement → blueprint → ceremony)
+        this.circuitForge = new CircuitForge(this);
+        // QuaiAxe burn-mining mini-game (miner → furnace → furnace wall)
+        this.quaiAxe = new QuaiAxeGame(this);
         this.robotics = new UnitreeManager(this);
         this.digitalTwin = new DigitalTwinSystem(this);
         this.economics = new EconomyManager(this);
@@ -978,6 +997,8 @@ self.onmessage = function(e) {
     createDefaultEnvironment() { Templates.createDefaultEnvironment(this); }
     async createBoltevmTemplate(name = 'Boltevm World') { await Templates.createBoltevmTemplate(this, name); }
     createTradingAgentsTemplate() { Templates.createTradingAgentsTemplate(this); }
+    async createCeremonyArenaTemplate(name = 'Ceremony Arena') { const m = await import('./ceremonyArena'); await m.createCeremonyArenaTemplate(this, name); }
+    async createQuaiAxeFurnaceTemplate(name = 'QuaiAxe Furnace') { const m = await import('./quaiAxeFurnace'); await m.createQuaiAxeFurnaceTemplate(this, name); }
     createCube(name = "Cube") { return Factories.createCube(this, name); }
     createSphere(name = "Sphere") { return Factories.createSphere(this, name); }
     createLight(name = "PointLight") { return Factories.createLight(this, name); }
@@ -1390,6 +1411,8 @@ self.onmessage = function(e) {
             this.xr.update(delta);
             this.optimizer.update();
             if (this.fogOverlay) this.fogOverlay.update(this.camera.position);
+            if (this.circuitForge) this.circuitForge.update();
+            if (this.quaiAxe) this.quaiAxe.update(delta);
 
             // Proximity voice & text tick — update nearby players and voice gain
             if (this.proximity) {

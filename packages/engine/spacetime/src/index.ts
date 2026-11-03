@@ -175,6 +175,119 @@ const TradingSimulationState = {
     updated_at: t.u64(),
 };
 
+/**
+ * ZKCircuitBlueprint — A circuit designed in-game (gate graph).
+ *
+ * Players build circuits by placing gate objects in the world; the
+ * compiled blueprint is published here so it can be shared, remixed,
+ * and bound to a setup ceremony. blueprint_hash (SHA-256 of the
+ * canonical blueprint) is the content identity ceremonies bind to.
+ */
+const ZKCircuitBlueprint = {
+    id: t.string().primaryKey(),
+    lobby_id: t.string().index(),
+    name: t.string(),
+    blueprint_json: t.string(),       // Full CircuitBlueprint JSON
+    blueprint_hash: t.string(),       // SHA-256 of canonical form
+    constraint_count: t.u32(),        // Estimated R1CS constraints
+    creator_identity: t.identity(),
+    created_at: t.u64(),
+};
+
+/**
+ * ZKCeremony — A multi-party trusted setup ceremony.
+ *
+ * Sequential contribution chain (Powers-of-Tau style): participants join
+ * a queue (humans and agents alike — both connect as SpacetimeDB clients),
+ * contribute entropy on their turn, and the accumulator hash chain forms
+ * a publicly verifiable transcript. The participant queue is stored as
+ * JSON to preserve turn order; individual contributions live in
+ * ZKCeremonyContribution for auditability.
+ */
+const ZKCeremony = {
+    id: t.string().primaryKey(),
+    lobby_id: t.string().index(),
+    name: t.string(),
+    circuit_blueprint_id: t.string(),
+    blueprint_hash: t.string(),
+    phase: t.string(),                // 'draft'|'open'|'running'|'finalizing'|'finalized'|'aborted'
+    creator_identity: t.identity(),
+    config_json: t.string(),          // ZKCeremonyConfig
+    participants_json: t.string(),    // CeremonyParticipant[] (queue order = turn order)
+    contribution_count: t.u32(),      // contributions.length — next turn index
+    accumulator_hash: t.string(),     // Current chain head (challenge for next contributor)
+    final_parameters_hash: t.string(),
+    beacon_hash: t.string(),
+    created_at: t.u64(),
+    finalized_at: t.u64(),
+};
+
+/**
+ * ZKCeremonyContribution — One link in a ceremony's hash chain.
+ *
+ * Only the entropy COMMITMENT (SHA-256) is stored; raw entropy never
+ * leaves the contributor's machine. Full hash-chain verification is
+ * performed client-side (sha256 is not available in the module runtime);
+ * the server enforces ordering, turn-taking, and linkage consistency.
+ */
+const ZKCeremonyContribution = {
+    id: t.string().primaryKey(),      // `${ceremony_id}:${index}`
+    ceremony_id: t.string().index(),
+    lobby_id: t.string().index(),
+    idx: t.u32(),
+    participant_id: t.string(),       // Identity hex or agent id
+    participant_kind: t.string(),     // 'human' | 'agent'
+    prev_accumulator_hash: t.string(),
+    entropy_commitment: t.string(),
+    accumulator_hash: t.string(),
+    transcript_hash: t.string(),
+    entropy_source: t.string(),       // 'random' | 'mouse' | 'agent-seed' | 'hardware'
+    duration_ms: t.u64(),
+    attestation: t.string(),
+    timestamp: t.u64(),
+};
+
+/**
+ * QuaiAxeWallPixel — One cell of the shared 32×32 Furnace Wall.
+ *
+ * Primary key is `${lobby_id}:${x}:${y}` so each pixel is a single row;
+ * repaints are updates. Cost enforcement (10 QUAI empty / 150 overwrite)
+ * happens client-side against the painter's payout balance — the server
+ * enforces bounds and color format, and serializes concurrent painters.
+ */
+const QuaiAxeWallPixel = {
+    id: t.string().primaryKey(),      // `${lobby_id}:${x}:${y}`
+    lobby_id: t.string().index(),
+    x: t.u32(),
+    y: t.u32(),
+    color: t.string(),                // '#rrggbb'
+    painter_identity: t.identity(),
+    painter_name: t.string(),
+    painted_at: t.u64(),
+};
+
+/**
+ * QuaiAxeBurn — A published burn-batch event.
+ *
+ * Amounts are decimal wei strings (module runtime has no bigint columns
+ * for u256-range values). Clients re-verify the split locally with
+ * quaiAxeSplit() — the shared log is for coordination and furnace heat,
+ * not custody.
+ */
+const QuaiAxeBurn = {
+    id: t.string().primaryKey(),      // `${lobby_id}:${identity}:${batch}`
+    lobby_id: t.string().index(),
+    miner_identity: t.identity(),
+    miner_name: t.string(),
+    burn_share_bps: t.u32(),
+    gross_wei: t.string(),
+    burn_buy_wei: t.string(),
+    payout_wei: t.string(),
+    fee_wei: t.string(),
+    gas_wei: t.string(),
+    timestamp: t.u64(),
+};
+
 const spacetimedb = schema({
     WorldEntity: table({ public: true }, WorldEntity),
     Lobby: table({ public: true }, Lobby),
@@ -187,6 +300,11 @@ const spacetimedb = schema({
     VoiceSignal: table({ public: true }, VoiceSignal),
     VoiceState: table({ public: true }, VoiceState),
     TradingSimulationState: table({ public: true }, TradingSimulationState),
+    ZKCircuitBlueprint: table({ public: true }, ZKCircuitBlueprint),
+    ZKCeremony: table({ public: true }, ZKCeremony),
+    ZKCeremonyContribution: table({ public: true }, ZKCeremonyContribution),
+    QuaiAxeWallPixel: table({ public: true }, QuaiAxeWallPixel),
+    QuaiAxeBurn: table({ public: true }, QuaiAxeBurn),
 });
 
 export default spacetimedb;
@@ -577,6 +695,316 @@ export const resolve_sealed_bids = spacetimedb.reducer(
         // 2. Verify Poseidon(amount, salt) === stored commitment_hash
         // 3. Determine the highest valid bid
         // 4. Execute the trade via the EconomyManager
+    }
+);
+
+// ═══════════════════════════════════════════════════════════════════
+// ZK CEREMONIES — Circuit blueprints & multi-party setup coordination
+// ═══════════════════════════════════════════════════════════════════
+//
+// These reducers are the shared coordination surface for human players
+// AND agentic participants: both connect as SpacetimeDB clients and call
+// the same reducers. The server enforces ordering and turn-taking; full
+// hash-chain verification happens client-side (sha256 is unavailable in
+// the module runtime).
+
+/**
+ * Publish (or update) a circuit blueprint built in-game.
+ * The blueprint hash binds future ceremonies to this exact design.
+ */
+export const publish_circuit_blueprint = spacetimedb.reducer(
+    {
+        lobby_id: t.string(),
+        id: t.string(),
+        name: t.string(),
+        blueprint_json: t.string(),
+        blueprint_hash: t.string(),
+        constraint_count: t.u32(),
+    },
+    (ctx, data) => {
+        // Validate the blueprint is parseable JSON with gates
+        let parsed: any;
+        try {
+            parsed = JSON.parse(data.blueprint_json);
+        } catch {
+            throw new Error("Blueprint is not valid JSON");
+        }
+        if (!Array.isArray(parsed.gates) || !Array.isArray(parsed.outputs)) {
+            throw new Error("Blueprint must contain gates[] and outputs[]");
+        }
+
+        const existing = ctx.db.ZKCircuitBlueprint.id.find(data.id);
+        if (existing) {
+            // Only the original creator may update their blueprint
+            if (existing.creator_identity.toHexString() !== ctx.sender.toHexString()) {
+                throw new Error("Only the blueprint creator can update it");
+            }
+            existing.name = data.name;
+            existing.blueprint_json = data.blueprint_json;
+            existing.blueprint_hash = data.blueprint_hash;
+            existing.constraint_count = data.constraint_count;
+            ctx.db.ZKCircuitBlueprint.id.update(existing);
+        } else {
+            ctx.db.ZKCircuitBlueprint.insert({
+                id: data.id,
+                lobby_id: data.lobby_id,
+                name: data.name,
+                blueprint_json: data.blueprint_json,
+                blueprint_hash: data.blueprint_hash,
+                constraint_count: data.constraint_count,
+                creator_identity: ctx.sender,
+                created_at: BigInt(Date.now()),
+            });
+        }
+        console.log(`[ZK-CEREMONY] Blueprint "${data.name}" published (${data.blueprint_hash.substring(0, 12)}…)`);
+    }
+);
+
+/**
+ * Create a ceremony bound to a circuit blueprint.
+ * The creator supplies the genesis accumulator hash (computed client-side,
+ * deterministically from ceremony id + blueprint hash) and starts in
+ * 'open' phase ready to accept participants.
+ */
+export const create_ceremony = spacetimedb.reducer(
+    {
+        lobby_id: t.string(),
+        id: t.string(),
+        name: t.string(),
+        circuit_blueprint_id: t.string(),
+        blueprint_hash: t.string(),
+        genesis_hash: t.string(),
+        config_json: t.string(),
+    },
+    (ctx, data) => {
+        if (ctx.db.ZKCeremony.id.find(data.id)) {
+            throw new Error("Ceremony id already exists");
+        }
+        // If a blueprint is referenced, it must exist
+        if (data.circuit_blueprint_id && !ctx.db.ZKCircuitBlueprint.id.find(data.circuit_blueprint_id)) {
+            throw new Error("Referenced circuit blueprint not found");
+        }
+        // Validate config parses
+        try { JSON.parse(data.config_json); } catch {
+            throw new Error("config_json is not valid JSON");
+        }
+
+        ctx.db.ZKCeremony.insert({
+            id: data.id,
+            lobby_id: data.lobby_id,
+            name: data.name,
+            circuit_blueprint_id: data.circuit_blueprint_id,
+            blueprint_hash: data.blueprint_hash,
+            phase: 'open',
+            creator_identity: ctx.sender,
+            config_json: data.config_json,
+            participants_json: '[]',
+            contribution_count: 0,
+            accumulator_hash: data.genesis_hash,
+            final_parameters_hash: '',
+            beacon_hash: '',
+            created_at: BigInt(Date.now()),
+            finalized_at: 0n,
+        });
+        console.log(`[ZK-CEREMONY] Ceremony "${data.name}" created and opened`);
+    }
+);
+
+/**
+ * Join a ceremony's contribution queue. Works identically for human
+ * players and agentic clients — both are SpacetimeDB connections.
+ * Queue order is turn order.
+ */
+export const join_ceremony_queue = spacetimedb.reducer(
+    {
+        ceremony_id: t.string(),
+        display_name: t.string(),
+        kind: t.string(),   // 'human' | 'agent'
+    },
+    (ctx, data) => {
+        const ceremony = ctx.db.ZKCeremony.id.find(data.ceremony_id);
+        if (!ceremony) throw new Error("Ceremony not found");
+        if (ceremony.phase !== 'open') throw new Error(`Ceremony is ${ceremony.phase} — not accepting participants`);
+        if (data.kind !== 'human' && data.kind !== 'agent') throw new Error("kind must be 'human' or 'agent'");
+
+        const participants: any[] = JSON.parse(ceremony.participants_json);
+        const config: any = JSON.parse(ceremony.config_json);
+
+        if (config.maxContributors > 0 && participants.length >= config.maxContributors) {
+            throw new Error("Ceremony queue is full");
+        }
+
+        const senderHex = ctx.sender.toHexString();
+        if (participants.some((p) => p.id === senderHex)) {
+            throw new Error("Already in the queue");
+        }
+
+        participants.push({
+            id: senderHex,
+            kind: data.kind,
+            displayName: data.display_name,
+            joinedAt: Date.now(),
+        });
+
+        ceremony.participants_json = JSON.stringify(participants);
+        ctx.db.ZKCeremony.id.update(ceremony);
+        console.log(`[ZK-CEREMONY] ${data.display_name} (${data.kind}) joined "${ceremony.name}" at position ${participants.length - 1}`);
+    }
+);
+
+/**
+ * Leave the queue (only while the ceremony is open).
+ */
+export const leave_ceremony_queue = spacetimedb.reducer(
+    { ceremony_id: t.string() },
+    (ctx, data) => {
+        const ceremony = ctx.db.ZKCeremony.id.find(data.ceremony_id);
+        if (!ceremony) throw new Error("Ceremony not found");
+        if (ceremony.phase !== 'open') throw new Error("Queue is locked once the ceremony starts");
+
+        const senderHex = ctx.sender.toHexString();
+        const participants: any[] = JSON.parse(ceremony.participants_json);
+        ceremony.participants_json = JSON.stringify(participants.filter((p) => p.id !== senderHex));
+        ctx.db.ZKCeremony.id.update(ceremony);
+    }
+);
+
+/**
+ * Start the ceremony (creator only). Locks the queue and begins the
+ * sequential contribution chain.
+ */
+export const start_ceremony = spacetimedb.reducer(
+    { ceremony_id: t.string() },
+    (ctx, data) => {
+        const ceremony = ctx.db.ZKCeremony.id.find(data.ceremony_id);
+        if (!ceremony) throw new Error("Ceremony not found");
+        if (ceremony.creator_identity.toHexString() !== ctx.sender.toHexString()) {
+            throw new Error("Only the ceremony creator can start it");
+        }
+        if (ceremony.phase !== 'open') throw new Error(`Ceremony is ${ceremony.phase}`);
+
+        const participants: any[] = JSON.parse(ceremony.participants_json);
+        if (participants.length === 0) throw new Error("Cannot start with an empty queue");
+
+        ceremony.phase = 'running';
+        ceremony.contribution_count = 0;
+        ctx.db.ZKCeremony.id.update(ceremony);
+        console.log(`[ZK-CEREMONY] "${ceremony.name}" started — first turn: ${participants[0].displayName}`);
+    }
+);
+
+/**
+ * Submit a ceremony contribution on your turn.
+ *
+ * Server-side enforcement: phase is 'running', the caller is the expected
+ * participant (queue[contribution_count]), and the claimed prev accumulator
+ * links to the current chain head. Clients independently verify the full
+ * hash chain (genesis → head) before trusting the transcript.
+ */
+export const submit_ceremony_contribution = spacetimedb.reducer(
+    {
+        ceremony_id: t.string(),
+        entropy_commitment: t.string(),
+        accumulator_hash: t.string(),
+        transcript_hash: t.string(),
+        entropy_source: t.string(),
+        duration_ms: t.u64(),
+        attestation: t.string(),
+    },
+    (ctx, data) => {
+        const ceremony = ctx.db.ZKCeremony.id.find(data.ceremony_id);
+        if (!ceremony) throw new Error("Ceremony not found");
+        if (ceremony.phase !== 'running') throw new Error(`Ceremony is ${ceremony.phase} — not accepting contributions`);
+
+        const participants: any[] = JSON.parse(ceremony.participants_json);
+        const index = ceremony.contribution_count;
+        const expected = participants[index];
+        if (!expected) throw new Error("Contribution round already complete");
+
+        const senderHex = ctx.sender.toHexString();
+        if (expected.id !== senderHex) {
+            throw new Error(`Not your turn — waiting on ${expected.displayName}`);
+        }
+
+        // Hash format sanity (64 hex chars)
+        const isHash = (h: string) => /^[0-9a-f]{64}$/.test(h);
+        if (!isHash(data.entropy_commitment) || !isHash(data.accumulator_hash) || !isHash(data.transcript_hash)) {
+            throw new Error("Hashes must be 64-char lowercase hex (SHA-256)");
+        }
+
+        const contributionId = `${data.ceremony_id}:${index}`;
+        ctx.db.ZKCeremonyContribution.insert({
+            id: contributionId,
+            ceremony_id: data.ceremony_id,
+            lobby_id: ceremony.lobby_id,
+            idx: index,
+            participant_id: senderHex,
+            participant_kind: expected.kind,
+            prev_accumulator_hash: ceremony.accumulator_hash,
+            entropy_commitment: data.entropy_commitment,
+            accumulator_hash: data.accumulator_hash,
+            transcript_hash: data.transcript_hash,
+            entropy_source: data.entropy_source,
+            duration_ms: data.duration_ms,
+            attestation: data.attestation,
+            timestamp: BigInt(Date.now()),
+        });
+
+        ceremony.contribution_count = index + 1;
+        ceremony.accumulator_hash = data.accumulator_hash;
+
+        if (ceremony.contribution_count >= participants.length) {
+            ceremony.phase = 'finalizing';
+            console.log(`[ZK-CEREMONY] "${ceremony.name}" — all ${participants.length} contributions in, awaiting finalization`);
+        } else {
+            console.log(`[ZK-CEREMONY] "${ceremony.name}" — contribution ${index + 1}/${participants.length} accepted; next: ${participants[index + 1].displayName}`);
+        }
+
+        ctx.db.ZKCeremony.id.update(ceremony);
+    }
+);
+
+/**
+ * Finalize a ceremony (creator only): record the final parameters hash
+ * and optional public beacon.
+ */
+export const finalize_ceremony = spacetimedb.reducer(
+    {
+        ceremony_id: t.string(),
+        final_parameters_hash: t.string(),
+        beacon_hash: t.string(),
+    },
+    (ctx, data) => {
+        const ceremony = ctx.db.ZKCeremony.id.find(data.ceremony_id);
+        if (!ceremony) throw new Error("Ceremony not found");
+        if (ceremony.creator_identity.toHexString() !== ctx.sender.toHexString()) {
+            throw new Error("Only the ceremony creator can finalize it");
+        }
+        if (ceremony.phase !== 'finalizing') throw new Error(`Ceremony is ${ceremony.phase} — not ready to finalize`);
+
+        ceremony.phase = 'finalized';
+        ceremony.final_parameters_hash = data.final_parameters_hash;
+        ceremony.beacon_hash = data.beacon_hash;
+        ceremony.finalized_at = BigInt(Date.now());
+        ctx.db.ZKCeremony.id.update(ceremony);
+        console.log(`[ZK-CEREMONY] "${ceremony.name}" FINALIZED → params ${data.final_parameters_hash.substring(0, 16)}…`);
+    }
+);
+
+/**
+ * Abort a ceremony (creator only).
+ */
+export const abort_ceremony = spacetimedb.reducer(
+    { ceremony_id: t.string() },
+    (ctx, data) => {
+        const ceremony = ctx.db.ZKCeremony.id.find(data.ceremony_id);
+        if (!ceremony) throw new Error("Ceremony not found");
+        if (ceremony.creator_identity.toHexString() !== ctx.sender.toHexString()) {
+            throw new Error("Only the ceremony creator can abort it");
+        }
+        if (ceremony.phase === 'finalized') throw new Error("Cannot abort a finalized ceremony");
+        ceremony.phase = 'aborted';
+        ctx.db.ZKCeremony.id.update(ceremony);
     }
 );
 
@@ -1051,5 +1479,111 @@ export const leave_lobby = spacetimedb.reducer(
                 ctx.db.VoiceSignal.id.delete(sig.id);
             }
         }
+    }
+);
+
+// ─── QuaiAxe Furnace Wall ────────────────────────────────────────
+// Shared burn-mining surface: wall pixels and burn events. Humans and
+// agentic clients call the same reducers; the server enforces bounds,
+// color format, and serialization. Economics (pixel pricing, split
+// arithmetic) stay client-side in @b3js/web3's quaiAxeSplit.
+
+const QAXE_WALL_SIZE_MODULE = 32;
+
+/**
+ * Paint (or repaint) a Furnace Wall pixel. Upserts by
+ * `${lobby_id}:${x}:${y}` so concurrent painters serialize cleanly.
+ */
+export const paint_qaxe_pixel = spacetimedb.reducer(
+    {
+        lobby_id: t.string(),
+        x: t.u32(),
+        y: t.u32(),
+        color: t.string(),
+        painter_name: t.string(),
+    },
+    (ctx, data) => {
+        if (data.x >= QAXE_WALL_SIZE_MODULE || data.y >= QAXE_WALL_SIZE_MODULE) {
+            throw new Error(`Pixel out of bounds (wall is ${QAXE_WALL_SIZE_MODULE}x${QAXE_WALL_SIZE_MODULE})`);
+        }
+        if (!/^#[0-9a-fA-F]{6}$/.test(data.color)) {
+            throw new Error("Color must be '#rrggbb'");
+        }
+
+        const id = `${data.lobby_id}:${data.x}:${data.y}`;
+        const existing = ctx.db.QuaiAxeWallPixel.id.find(id);
+        const row = {
+            id,
+            lobby_id: data.lobby_id,
+            x: data.x,
+            y: data.y,
+            color: data.color.toLowerCase(),
+            painter_identity: ctx.sender,
+            painter_name: data.painter_name,
+            painted_at: BigInt(Date.now()),
+        };
+        if (existing) {
+            ctx.db.QuaiAxeWallPixel.id.update(row);
+        } else {
+            ctx.db.QuaiAxeWallPixel.insert(row);
+        }
+        console.log(`[QAXE] ${data.painter_name} painted (${data.x},${data.y}) ${data.color}`);
+    }
+);
+
+/**
+ * Publish a burn-batch event. Amounts are decimal wei strings; clients
+ * re-verify with quaiAxeSplit locally. The shared log drives furnace
+ * heat and leaderboards across the lobby.
+ */
+export const record_qaxe_burn = spacetimedb.reducer(
+    {
+        lobby_id: t.string(),
+        batch_id: t.string(),
+        miner_name: t.string(),
+        burn_share_bps: t.u32(),
+        gross_wei: t.string(),
+        burn_buy_wei: t.string(),
+        payout_wei: t.string(),
+        fee_wei: t.string(),
+        gas_wei: t.string(),
+    },
+    (ctx, data) => {
+        if (data.burn_share_bps < 1000 || data.burn_share_bps > 10000) {
+            throw new Error("Burn share must be 1000–10000 bps (≥10%)");
+        }
+        for (const [k, v] of Object.entries({
+            gross_wei: data.gross_wei,
+            burn_buy_wei: data.burn_buy_wei,
+            payout_wei: data.payout_wei,
+            fee_wei: data.fee_wei,
+            gas_wei: data.gas_wei,
+        })) {
+            if (!/^\d+$/.test(v)) throw new Error(`${k} must be a decimal wei string`);
+        }
+        // Conservation check: fee + payout + burnBuy + gas == gross
+        const sum = BigInt(data.fee_wei) + BigInt(data.payout_wei) + BigInt(data.burn_buy_wei) + BigInt(data.gas_wei);
+        if (sum !== BigInt(data.gross_wei)) {
+            throw new Error("Split does not sum to gross — rejecting inconsistent burn record");
+        }
+
+        const id = `${data.lobby_id}:${ctx.sender.toHexString()}:${data.batch_id}`;
+        if (ctx.db.QuaiAxeBurn.id.find(id)) {
+            throw new Error("Burn batch already recorded");
+        }
+        ctx.db.QuaiAxeBurn.insert({
+            id,
+            lobby_id: data.lobby_id,
+            miner_identity: ctx.sender,
+            miner_name: data.miner_name,
+            burn_share_bps: data.burn_share_bps,
+            gross_wei: data.gross_wei,
+            burn_buy_wei: data.burn_buy_wei,
+            payout_wei: data.payout_wei,
+            fee_wei: data.fee_wei,
+            gas_wei: data.gas_wei,
+            timestamp: BigInt(Date.now()),
+        });
+        console.log(`[QAXE] ${data.miner_name} burn batch ${data.batch_id} (${data.burn_share_bps / 100}% burn)`);
     }
 );
