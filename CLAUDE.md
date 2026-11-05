@@ -38,6 +38,7 @@ cd packages/engine/spacetime && bun run build
   - `spacetime.ts` — Client-side SpacetimeManager for real-time multiplayer sync with offline fallback to localStorage
   - `glbParser.ts` — Hyperfy-compatible GLB parser. `processGlbPhysics(gltf, world)` reads `userData.node` extras (collider/rigidbody/mesh/lod/snap) and creates Cannon-es physics bodies with Trimesh/ConvexPolyhedron shapes. Collider meshes are auto-hidden.
   - `network.ts`, `xr.ts`, `vehicle.ts`, `combat.ts`, `audio.ts`, `inventory.ts`, `optimization.ts`, `project.ts` — Feature managers owned by B3Engine
+  - `rhythm/` — Rhythm Arcade: five DeFi rhythm mini-games for Quai (`engine.rhythm`, see `docs/rhythm-arcade.md`). Pure rules (`core.ts`, `defi.ts`, `games/`) + platform layer (`input.ts`, `audio.ts`, `renderer.ts`, `arcade.ts`). Headless-testable via `RhythmArcade.tick()`.
 - **`@b3js/ui`** (`packages/ui/src/`) — Editor UI built as Web Components (webjsx, not React). `B3Editor` is a custom element (`<b3-editor>`) with Shadow DOM. Panels: Properties, LogicEditor, NodalEditor, ShaderEditor, NetworkPanel, InventoryPanel, MiningPanel, AudioPanel, OptimizationPanel, Outliner. State via nanostores in `store/`.
 - **`@b3js/web3`** (`packages/web3/src/`) — Web3 bridge. MinerClient (singleton) connects to QRL via WebSocket and Quai via HTTP polling.
 - **`apps/web`** — Vite app entry point. Wires engine + UI + web3 together. Engine instance exposed as `window.B3_ENGINE_INSTANCE`.

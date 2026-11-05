@@ -18,6 +18,7 @@ import { SpacetimeManager } from './spacetime';
 import { CeremonyCoordinator } from './ceremony';
 import { CircuitForge } from './circuitforge';
 import { QuaiAxeGame } from './quaiAxe';
+import { RhythmArcade } from './rhythm';
 import { TutorialManager } from './tutorial';
 import { ProjectManager } from './project';
 import { RoboticsManager } from './robotics/RoboticsManager';
@@ -78,6 +79,8 @@ export { createDefaultEnvironment, createBoltevmTemplate, createExchangeTemplate
 export { createCeremonyArenaTemplate } from './ceremonyArena';
 export { createQuaiAxeFurnaceTemplate } from './quaiAxeFurnace';
 export * from './quaiAxe';
+export * from './rhythm';
+export { createRhythmArcadeTemplate } from './rhythmArcade';
 export { TutorialManager, ZK_CEREMONY_CURRICULUM, QUAIAXE_CURRICULUM } from './tutorial';
 export type { TutorialStep } from './tutorial';
 
@@ -173,6 +176,8 @@ export class B3Engine {
     public ceremony: CeremonyCoordinator;
     public circuitForge: CircuitForge;
     public quaiAxe: QuaiAxeGame;
+    /** DeFi rhythm mini-games (Burn Beat, Swap Tempo, Yield Stairway, Liquidation Dodge, Merge Pulse). */
+    public rhythm: RhythmArcade;
     public tutorial: TutorialManager = new TutorialManager();
     public robotics!: RoboticsManager;
     public digitalTwin!: DigitalTwinSystem;
@@ -659,6 +664,8 @@ export class B3Engine {
         this.circuitForge = new CircuitForge(this);
         // QuaiAxe burn-mining mini-game (miner → furnace → furnace wall)
         this.quaiAxe = new QuaiAxeGame(this);
+        // Rhythm Arcade — DeFi rhythm mini-games built for Quai
+        this.rhythm = new RhythmArcade(this);
         this.robotics = new UnitreeManager(this);
         this.digitalTwin = new DigitalTwinSystem(this);
         this.economics = new EconomyManager(this);
@@ -999,6 +1006,7 @@ self.onmessage = function(e) {
     createTradingAgentsTemplate() { Templates.createTradingAgentsTemplate(this); }
     async createCeremonyArenaTemplate(name = 'Ceremony Arena') { const m = await import('./ceremonyArena'); await m.createCeremonyArenaTemplate(this, name); }
     async createQuaiAxeFurnaceTemplate(name = 'QuaiAxe Furnace') { const m = await import('./quaiAxeFurnace'); await m.createQuaiAxeFurnaceTemplate(this, name); }
+    async createRhythmArcadeTemplate(name = 'Rhythm Arcade') { const m = await import('./rhythmArcade'); await m.createRhythmArcadeTemplate(this, name); }
     createCube(name = "Cube") { return Factories.createCube(this, name); }
     createSphere(name = "Sphere") { return Factories.createSphere(this, name); }
     createLight(name = "PointLight") { return Factories.createLight(this, name); }
