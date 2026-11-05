@@ -76,3 +76,36 @@ difficulty)`, `onEvent(sessionEvent)`, `hud()`, `summary()`, `reset()`, and
 register with `engine.rhythm.registerGame(id, () => new MyGame())`. The game
 is pure rules — no DOM — so it is testable with `RhythmArcade.tick()` as in
 `packages/engine/tests/rhythm.test.ts`.
+
+## XR Mini Game Arcade (WebXR)
+
+`engine.rhythm.xr` (`packages/engine/src/rhythm/xr/`) plays the same five
+games inside a headset. Load **Templates → 🥽 XR Mini Game Arcade (Quai
+DeFi)** (or the Arcade tab's *Load XR Arcade* button), then press
+**Enter VR** in the header.
+
+- **Picker** — five floating game cards in an arc plus difficulty chips.
+  Point a controller at a card and pull the trigger. On a flat screen, click
+  the card with the mouse.
+- **Stage** (`XRRhythmStage`, an `ArcadeView`) — four glowing highways
+  carry note slabs toward physical drum pads at your chest height; hold
+  notes stretch along the highway; judgement flashes the pad; feedback
+  floats as sprites; score / combo / FEVER / DeFi lines paint onto a
+  canvas-textured HUD panel; the results card appears on the same panel.
+  The stage recentres in front of you whenever a game starts.
+- **Input** (`XRRhythmInput`) — hit a pad with a controller or a tracked
+  index fingertip (enter = press, leave = release), or hold the trigger
+  while pointing at a pad. Judgement goes through the same `InputAdapter`
+  path as keyboard/touch. Grip pauses, both grips exit to the picker, any
+  pad on the results card replays.
+- **Haptics** — controller actuators pulse per judgement (left hand for
+  lanes 0–1, right for 2–3), FEVER and epic DeFi moments.
+- **World** (`createXRArcadeTemplate`) — beat ring under the player and
+  nine Quai Zone pillars lit by the run's DeFi intensity.
+
+While the XR arcade owns the controllers, `XRManager` skips locomotion and
+scaling gestures so trigger pulls don't teleport you mid-run.
+
+Views are pluggable: `arcade.attachView(view)` draws any object with
+`render(state: RenderState)` alongside (or instead of) the 2D canvas, so a
+run can be mirrored on a monitor and in a headset at once.

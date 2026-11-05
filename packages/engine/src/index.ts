@@ -81,6 +81,7 @@ export { createQuaiAxeFurnaceTemplate } from './quaiAxeFurnace';
 export * from './quaiAxe';
 export * from './rhythm';
 export { createRhythmArcadeTemplate } from './rhythmArcade';
+export { createXRArcadeTemplate } from './xrArcadeTemplate';
 export { TutorialManager, ZK_CEREMONY_CURRICULUM, QUAIAXE_CURRICULUM } from './tutorial';
 export type { TutorialStep } from './tutorial';
 
@@ -1007,6 +1008,7 @@ self.onmessage = function(e) {
     async createCeremonyArenaTemplate(name = 'Ceremony Arena') { const m = await import('./ceremonyArena'); await m.createCeremonyArenaTemplate(this, name); }
     async createQuaiAxeFurnaceTemplate(name = 'QuaiAxe Furnace') { const m = await import('./quaiAxeFurnace'); await m.createQuaiAxeFurnaceTemplate(this, name); }
     async createRhythmArcadeTemplate(name = 'Rhythm Arcade') { const m = await import('./rhythmArcade'); await m.createRhythmArcadeTemplate(this, name); }
+    async createXRArcadeTemplate(name = 'XR Mini Game Arcade') { const m = await import('./xrArcadeTemplate'); await m.createXRArcadeTemplate(this, name); }
     createCube(name = "Cube") { return Factories.createCube(this, name); }
     createSphere(name = "Sphere") { return Factories.createSphere(this, name); }
     createLight(name = "PointLight") { return Factories.createLight(this, name); }

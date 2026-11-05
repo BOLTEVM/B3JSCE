@@ -1319,6 +1319,12 @@ export class B3Editor extends HTMLElement {
                     this.setBottomTab('arcade');
                     this.render();
                 }},
+                { label: '🥽 XR Mini Game Arcade (Quai DeFi)', action: async () => {
+                    if (!this.engine) return;
+                    await this.engine.createXRArcadeTemplate();
+                    this.setBottomTab('arcade');
+                    this.render();
+                }},
                 { label: '🎓 Restart Ceremony Course', action: () => {
                     this.engine?.tutorial?.startCurriculum('zk-ceremony', ZK_CEREMONY_CURRICULUM, true);
                     this.render();

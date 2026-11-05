@@ -136,7 +136,7 @@ export const RhythmArcadePanel = ({ engine, onRender }: any) => {
                 <div style="min-width: 240px;">
                     {title('Settings · cross-platform input')}
                     <div style="font-size: 10px; color: #aaa; line-height: 1.5;">
-                        Keys <b style="color: #ddd;">D F J K</b> (or arrows) · touch the lane columns · gamepad d-pad / face buttons · XR via <code>RhythmLaneActuator</code>.
+                        Keys <b style="color: #ddd;">D F J K</b> (or arrows) · touch the lane columns · gamepad d-pad / face buttons · in VR: load the XR Arcade, press <b style="color: #ddd;">Enter VR</b>, hit the pads with controllers or hands.
                     </div>
                     <div style="display: flex; gap: 6px; align-items: center; margin-top: 6px; flex-wrap: wrap;">
                         <span style="color: #777;">Latency offset</span>
@@ -149,6 +149,7 @@ export const RhythmArcadePanel = ({ engine, onRender }: any) => {
                         {btn(snap.muted ? '🔇 Unmute' : '🔊 Mute', () => { arcade.setMuted(!snap.muted); onRender(); }, '#999')}
                         {btn(snap.hapticsEnabled ? '📳 Haptics on' : '📴 Haptics off', () => { arcade.hapticsEnabled = !arcade.hapticsEnabled; onRender(); }, '#999')}
                         {btn('🕹️ Load Arcade World', async () => { await engine.createRhythmArcadeTemplate(); onRender(); }, '#999', snap.phase !== 'idle')}
+                        {btn('🥽 Load XR Arcade', async () => { await engine.createXRArcadeTemplate(); onRender(); }, '#999', snap.phase !== 'idle')}
                     </div>
                 </div>
             </div>

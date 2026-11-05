@@ -531,3 +531,58 @@ describe('RhythmArcade — headless full runs', () => {
         expect(arcade.phase).toBe('idle');
     });
 });
+
+// ═══════════════════════════════════════════════════════════════════
+
+import { computeLayout, laneAtPoint, notePosition } from '../src/rhythm/xr/layout';
+
+describe('XR arcade — stage layout & views', () => {
+    test('pads are laid out at the requested spacing and height for any lane count', () => {
+        for (const lanes of [1, 2, 3, 4]) {
+            const l = computeLayout({ lanes, padHeight: 1.1, spacing: 0.24 });
+            expect(l.pads.length).toBe(lanes);
+            for (const p of l.pads) { expect(p.y).toBe(1.1); expect(p.z).toBeLessThan(0); }
+            if (lanes > 1) {
+                expect(l.pads[lanes - 1].x - l.pads[0].x).toBeCloseTo(0.24 * (lanes - 1), 6);
+                expect(l.pads[0].x + l.pads[lanes - 1].x).toBeCloseTo(0, 6); // centred
+            }
+        }
+    });
+
+    test('laneAtPoint resolves hit volumes and misses outside them', () => {
+        const l = computeLayout({ lanes: 4 });
+        for (const p of l.pads) {
+            expect(laneAtPoint(l, p.x, p.y, p.z)).toBe(p.lane);
+            expect(laneAtPoint(l, p.x, p.y + 0.5, p.z)).toBe(-1);       // above
+            expect(laneAtPoint(l, p.x, p.y, p.z + 1)).toBe(-1);         // behind
+        }
+        expect(laneAtPoint(l, 5, l.pads[0].y, l.pads[0].z)).toBe(-1);
+    });
+
+    test('notes travel down the highway and arrive at the pad at t=0', () => {
+        const l = computeLayout({ lanes: 4 });
+        const pad = l.pads[2];
+        const far = notePosition(l, pad, 1), hit = notePosition(l, pad, 0);
+        expect(far.z).toBeLessThan(hit.z);
+        expect(far.y).toBeGreaterThan(hit.y);
+        expect(hit.x).toBe(pad.x); expect(hit.z).toBe(pad.z);
+        expect(hit.z - far.z).toBeCloseTo(l.highwayLength, 6);
+    });
+
+    test('attached views receive render state every tick, even without a canvas', async () => {
+        const { arcade, clock } = makeArcade();
+        const phases: string[] = [];
+        const view = { render: (s: any) => phases.push(s.phase), dispose: () => {} };
+        arcade.attachView(view);
+        clock.t = 0;
+        await arcade.start('burn-beat', { seed: 'view', silent: true, canvas: false });
+        for (let i = 0; i < 10; i++) { clock.t += 300; arcade.tick(clock.t); }
+        expect(phases).toContain('countdown');
+        expect(phases).toContain('playing');
+        arcade.detachView(view);
+        const n = phases.length;
+        clock.t += 300; arcade.tick(clock.t);
+        expect(phases.length).toBe(n);
+        arcade.stop();
+    });
+});

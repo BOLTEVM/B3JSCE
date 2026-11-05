@@ -10,6 +10,8 @@ export { BeatSynth } from './audio';
 export { CanvasRenderer } from './renderer';
 export type { ArcadePhase, RenderState, FloatingText, LaneFlash } from './renderer';
 export * from './arcade';
+export type { ArcadeView } from './view';
+export * from './xr';
 export { BurnBeat, BURNBEAT_SHARES_PER_BATCH, BURNBEAT_SHARE_WEI } from './games/BurnBeat';
 export type { SharePayload } from './games/BurnBeat';
 export { SwapTempo, SWAPTEMPO_SLIPPAGE_BPS, SWAPTEMPO_PERFECT_EDGE_BPS } from './games/SwapTempo';

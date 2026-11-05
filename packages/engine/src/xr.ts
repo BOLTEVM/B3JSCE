@@ -296,6 +296,9 @@ export class XRManager {
 
 
 
+        // While the XR Rhythm Arcade owns the controllers, skip locomotion/scaling.
+        if ((this.engine as any).rhythm?.xr?.capturesInput?.()) return;
+
         // Process Locomotion
         if (this.mode === 'Fly') {
             this.handleFly(delta);

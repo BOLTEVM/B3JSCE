@@ -26,6 +26,8 @@ import { BeatSynth } from './audio';
 import { CanvasRenderer } from './renderer';
 import type { ArcadePhase, FloatingText, LaneFlash, RenderState } from './renderer';
 import { PlayerProgress } from './progression';
+import type { ArcadeView } from './view';
+import { XRArcade } from './xr/XRArcade';
 import type { RunOutcome, KeyValueStorage } from './progression';
 import { BurnBeat } from './games/BurnBeat';
 import { SwapTempo } from './games/SwapTempo';
@@ -42,6 +44,8 @@ export interface StartOptions {
     container?: HTMLElement | null;
     /** Skip the audio engine (tests / silent mode). */
     silent?: boolean;
+    /** Draw the 2D canvas overlay (default true). XR runs turn it off. */
+    canvas?: boolean;
 }
 
 export interface ArcadeSnapshot {
@@ -98,8 +102,12 @@ export class RhythmArcade {
     public seed = '';
     public results: ArcadeSnapshot['results'] = null;
     public hapticsEnabled = true;
+    /** WebXR arcade (stage + drum-pad input + picker). Null when headless. */
+    public readonly xr: XRArcade | null;
+    private views: ArcadeView[] = [];
 
     private renderer: CanvasRenderer | null = null;
+    private useCanvas = true;
     private container: HTMLElement | null = null;
     private raf = 0;
     private floating: FloatingText[] = [];
@@ -132,7 +140,12 @@ export class RhythmArcade {
         this.registerGame('liquidation-dodge', () => new LiquidationDodge());
         this.registerGame('merge-pulse', () => new MergePulse());
         this.unsubInput = this.input.onInput(e => this.handleInput(e));
+        this.xr = engine && typeof document !== 'undefined' ? new XRArcade(this, engine) : null;
     }
+
+    /** Add a view (e.g. the XR stage) that is drawn alongside the canvas. */
+    attachView(v: ArcadeView) { if (!this.views.includes(v)) this.views.push(v); }
+    detachView(v: ArcadeView) { this.views = this.views.filter(x => x !== v); }
 
     // ── Registry ───────────────────────────────────────────────────
     registerGame(id: string, factory: GameFactory) { this.factories.set(id, factory); }
@@ -161,6 +174,7 @@ export class RhythmArcade {
         this.difficulty = difficulty;
         this.seed = opts.seed ?? `${Date.now().toString(36)}-${Math.floor(Math.random() * 1e6).toString(36)}`;
         this.silent = !!opts.silent;
+        this.useCanvas = opts.canvas !== false;
         this.game = factory();
         this.game.reset();
         this.chart = this.game.buildChart(this.seed, difficulty);
@@ -173,14 +187,18 @@ export class RhythmArcade {
         // Presentation (browser only)
         if (typeof document !== 'undefined') {
             this.container = opts.container ?? this.defaultContainer();
-            if (this.container) {
+            if (this.container && this.useCanvas) {
                 if (getComputedStyle(this.container).position === 'static') this.container.style.position = 'relative';
                 this.renderer = new CanvasRenderer(this.container);
                 this.input.laneAt = this.renderer.laneAt;
                 this.input.attach(this.renderer.canvas, this.chart.lanes);
-                window.addEventListener('keydown', this.onKey, { capture: true });
-                document.addEventListener('visibilitychange', this.onVisibility);
+            } else {
+                // No overlay (XR): keyboard + gamepad still work; pointer does nothing.
+                this.input.laneAt = () => -1;
+                this.input.attach(document.body, this.chart.lanes);
             }
+            window.addEventListener('keydown', this.onKey, { capture: true });
+            document.addEventListener('visibilitychange', this.onVisibility);
             if (!this.silent) await this.synth.init();
             try { await this.engine?.audio?.resume?.(); } catch { /* optional */ }
         }
@@ -197,7 +215,7 @@ export class RhythmArcade {
     restart() {
         if (!this.game) return;
         const id = this.game.meta.id;
-        void this.start(id, { difficulty: this.difficulty, container: this.container, silent: this.silent });
+        void this.start(id, { difficulty: this.difficulty, container: this.container, silent: this.silent, canvas: this.useCanvas });
     }
 
     pause() {
@@ -238,7 +256,7 @@ export class RhythmArcade {
         if (clearGame) { this.game = null; this.session = null; this.chart = null; }
     }
 
-    dispose() { this.teardownRun(true); this.unsubInput?.(); this.synth.dispose(); }
+    dispose() { this.teardownRun(true); this.xr?.unmount(); this.unsubInput?.(); this.synth.dispose(); }
 
     private defaultContainer(): HTMLElement | null {
         const vp = this.engine?.renderer?.domElement?.parentElement as HTMLElement | undefined;
@@ -329,8 +347,9 @@ export class RhythmArcade {
 
     /** Advance the arcade to wall time `nowWall` (ms). Public for headless tests. */
     tick(nowWall: number) {
-        if (this.phase === 'idle') return;
+        if (this.phase === 'idle') { this.xr?.update(); return; }
         this.input.pollGamepads(nowWall);
+        this.xr?.update();
         const song = this.conductor.songTime(nowWall);
 
         if (this.phase === 'calibrating' && this.chart) {
@@ -434,7 +453,7 @@ export class RhythmArcade {
     }
 
     private draw(song: number, nowWall: number) {
-        if (!this.renderer) return;
+        if (!this.renderer && this.views.length === 0) return;
         const state: RenderState = {
             phase: this.phase,
             songTime: song,
@@ -456,7 +475,8 @@ export class RhythmArcade {
             bpm: this.chart?.bpm ?? 120,
             tip: this.tip,
         };
-        this.renderer.render(state);
+        this.renderer?.render(state);
+        for (const v of this.views) v.render(state);
     }
 
     /** Notes are visible for ~4 beats; faster on harder difficulties. */
