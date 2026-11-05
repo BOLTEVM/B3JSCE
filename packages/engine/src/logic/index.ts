@@ -24,6 +24,9 @@ export { CeremonyTurnSensor, CeremonyPhaseSensor, CeremonyContributionSensor, Ce
 // QuaiAxe Burn-Mining Nodes
 export { QuaiAxeMiningSensor, QuaiAxeBurnSensor, QuaiAxeFeedActuator, QuaiAxePaintActuator } from './qaxe_nodes';
 
+// Rhythm Arcade — DeFi rhythm mini-games
+export { RhythmBeatSensor, RhythmJudgementSensor, RhythmFeverSensor, RhythmStartActuator, RhythmLaneActuator } from './rhythm_nodes';
+
 // V2 Pin System
 export { canConnect, PIN_COLORS } from './pins';
 export type { IPin, IConnection, PinDataType, PinDirection } from './pins';
@@ -68,6 +71,7 @@ import { CSharpController } from './csharp';
 import { ZKZoneSensor, ZKProximitySensor, ZKRevealSensor, ZKCommitActuator, ZKRevealActuator, ZKProveActuator, ZKZoneActuator } from './zk_nodes';
 import { CeremonyTurnSensor, CeremonyPhaseSensor, CeremonyContributionSensor, CeremonyContributeActuator, CeremonyFinalizeActuator, CeremonyUnlockActuator } from './ceremony_nodes';
 import { QuaiAxeMiningSensor, QuaiAxeBurnSensor, QuaiAxeFeedActuator, QuaiAxePaintActuator } from './qaxe_nodes';
+import { RhythmBeatSensor, RhythmJudgementSensor, RhythmFeverSensor, RhythmStartActuator, RhythmLaneActuator } from './rhythm_nodes';
 import { RacingWheelActuator } from './racing_wheel_actuator';
 import { VehicleDriveActuator } from '../vehicle_nodes';
 
@@ -119,6 +123,13 @@ registerSensorType('QuaiAxeMiningSensor', (d) => QuaiAxeMiningSensor.fromJSON(d)
 registerSensorType('QuaiAxeBurnSensor', (d) => QuaiAxeBurnSensor.fromJSON(d));
 registerActuatorType('QuaiAxeFeedActuator', (d) => QuaiAxeFeedActuator.fromJSON(d));
 registerActuatorType('QuaiAxePaintActuator', (d) => QuaiAxePaintActuator.fromJSON(d));
+
+// Rhythm Arcade Nodes
+registerSensorType('RhythmBeatSensor', (d) => RhythmBeatSensor.fromJSON(d));
+registerSensorType('RhythmJudgementSensor', (d) => RhythmJudgementSensor.fromJSON(d));
+registerSensorType('RhythmFeverSensor', (d) => RhythmFeverSensor.fromJSON(d));
+registerActuatorType('RhythmStartActuator', (d) => RhythmStartActuator.fromJSON(d));
+registerActuatorType('RhythmLaneActuator', (d) => RhythmLaneActuator.fromJSON(d));
 
 // ─── Register V2 Graph Node Types ──────────────────────────────
 import { OnStartNode, OnTickNode, OnKeyNode, OnCollisionNode, OnTimerNode, OnInteractNode } from './nodes/events';

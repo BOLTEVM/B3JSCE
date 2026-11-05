@@ -77,7 +77,7 @@ export class B3Editor extends HTMLElement {
     private wireMousePos: { x: number, y: number } = { x: 0, y: 0 };
     private selectedShaderNode: any | null = null;
     private isResizingLogic: boolean = false;
-    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' | 'assetBank' | 'haptics' | 'zk' | 'trading' | 'ceremony' | 'qaxe' = 'logic';
+    private activeBottomTab: 'logic' | 'shader' | 'audio' | 'network' | 'optimization' | 'inventory' | 'robotics' | 'assetBank' | 'haptics' | 'zk' | 'trading' | 'ceremony' | 'qaxe' | 'arcade' = 'logic';
 
     private miningEventHandlers: Partial<Record<'fractal' | 'quai' | 'qrl', () => void>> = {};
     private documentationShortcutBound: boolean = false;
@@ -97,6 +97,7 @@ export class B3Editor extends HTMLElement {
         TradingPanel: null,
         CeremonyPanel: null,
         QuaiAxePanel: null,
+        RhythmArcadePanel: null,
     };
 
     private lazyComponentPromises: Record<string, Promise<void> | null> = {};
@@ -690,6 +691,7 @@ export class B3Editor extends HTMLElement {
         if (tab === 'zk') this.loadLazyComponent('ZKPanel', () => import('./components/ZKPanel'));
         if (tab === 'ceremony') this.loadLazyComponent('CeremonyPanel', () => import('./components/CeremonyPanel'));
         if (tab === 'qaxe') this.loadLazyComponent('QuaiAxePanel', () => import('./components/QuaiAxePanel'));
+        if (tab === 'arcade') this.loadLazyComponent('RhythmArcadePanel', () => import('./components/RhythmArcadePanel'));
         if (tab === 'trading') this.loadLazyComponent('TradingPanel', () => import('./components/TradingPanel'));
         if (tab === 'haptics') this.loadLazyComponent('HapticsPanel', () => import('./components/HapticsPanel'));
     }
@@ -880,6 +882,7 @@ export class B3Editor extends HTMLElement {
         const TradingPanel = this.lazyComponents.TradingPanel;
         const CeremonyPanel = this.lazyComponents.CeremonyPanel;
         const QuaiAxePanel = this.lazyComponents.QuaiAxePanel;
+        const RhythmArcadePanel = this.lazyComponents.RhythmArcadePanel;
 
 
         webjsx.applyDiff(this.root, (
@@ -1085,6 +1088,9 @@ export class B3Editor extends HTMLElement {
                         <div class={`menu-item ${this.activeBottomTab === 'qaxe' ? 'active' : ''}`} 
                              style="height: 24px; font-size: 9px; color: #ff7a1a;"
                              onClick={() => this.setBottomTab('qaxe')}>QuaiAxe</div>
+                        <div class={`menu-item ${this.activeBottomTab === 'arcade' ? 'active' : ''}`} 
+                             style="height: 24px; font-size: 9px; color: #ff3333;"
+                             onClick={() => this.setBottomTab('arcade')}>🕹️ Arcade</div>
                         <div class={`menu-item ${this.activeBottomTab === 'trading' ? 'active' : ''}`} 
                              style="height: 24px; font-size: 9px; color: #3b82f6;"
                              onClick={() => this.setBottomTab('trading')}>Trading Agents</div>
@@ -1135,6 +1141,10 @@ export class B3Editor extends HTMLElement {
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
                     {this.activeBottomTab === 'qaxe' && (QuaiAxePanel ? QuaiAxePanel({ 
+                        engine: this.engine,
+                        onRender: () => this.render()
+                    }) : this.renderLazyPanel())}
+                    {this.activeBottomTab === 'arcade' && (RhythmArcadePanel ? RhythmArcadePanel({ 
                         engine: this.engine,
                         onRender: () => this.render()
                     }) : this.renderLazyPanel())}
@@ -1301,6 +1311,18 @@ export class B3Editor extends HTMLElement {
                     if (!this.engine) return;
                     await this.engine.createQuaiAxeFurnaceTemplate();
                     this.setBottomTab('qaxe');
+                    this.render();
+                }},
+                { label: '🕹️ Rhythm Arcade (DeFi Mini-Games)', action: async () => {
+                    if (!this.engine) return;
+                    await this.engine.createRhythmArcadeTemplate();
+                    this.setBottomTab('arcade');
+                    this.render();
+                }},
+                { label: '🥽 XR Mini Game Arcade (Quai DeFi)', action: async () => {
+                    if (!this.engine) return;
+                    await this.engine.createXRArcadeTemplate();
+                    this.setBottomTab('arcade');
                     this.render();
                 }},
                 { label: '🎓 Restart Ceremony Course', action: () => {
